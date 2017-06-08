@@ -6,6 +6,7 @@
 #include <vector>
 #include <iterator>
 #include <string>
+#include <math.h>
 
 using namespace cv;
 using namespace std;
@@ -14,4 +15,8 @@ class pretreatment{
         static IplImage *img_gray;
     public:
         static int colorSegmentation ( IplImage * );
+        struct segment {
+            float angle, length;
+            Point *a,*b;
+        };
 };
