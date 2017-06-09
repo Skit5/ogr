@@ -136,10 +136,10 @@ for(int i = 0; i < picWidth; i++)
         });*/
 
         if(abs(l[0]-l[2])<= histoMargin ){
-            histoX[(int)floor(l[0]/histoMargin)] += lineLength;
+            histoX[(int)floor(l[0]/histoMargin)] += lineLength/(picHeight*histoMargin);
             line( displayer, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 3, CV_AA);
         }else if(abs(l[1]-l[3])<= histoMargin ){
-            histoY[(int)floor(l[1]/histoMargin)] += lineLength;
+            histoY[(int)floor(l[1]/histoMargin)] += lineLength/(picWidth*histoMargin);
             line( displayer, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 3, CV_AA);
         }
 
@@ -162,18 +162,30 @@ for(int i = 0; i < picWidth; i++)
     split(complexX,fftX);
     split(complexY,fftY);
 
+
     Mat magnX,magnY,anglX,anglY;
 
     cartToPolar(fftX[0],fftX[1],magnX,anglX,true);
     cartToPolar(fftY[0],fftY[1],magnY,anglY,true);
 
     float maxMagnX=0.0,maxPhasX=0.0;
+    int counter=0;
     for(int m=0; m<magnX.cols; m++){
-        if(magnX.at<float>(0,m)>maxMagnX){
+        if(magnX.at<float>(0,m)>maxMagnX && anglX.at<float>(0,m)!=0){
             maxMagnX = magnX.at<float>(0,m);
             maxPhasX = anglX.at<float>(0,m);
+            //maxMagnX = sqrt(fftX[0]*fftX[1]+fftY[0]*fftY[1]);
+            //maxPhasX = atan(fftX[1]/fftY[0])
         }
-        cout<<magnX.at<float>(0,m)<<" at "<<anglX.at<float>(0,m)<<endl;
+
+        if(m>0 && histoX[m]>0){
+            cout<<counter<<endl;
+            counter=0;
+        }
+        else
+            counter++;
+
+        cout<<abs(complex<float>(fftX[0].at<float>(0,m),fftX[1].at<float>(0,m)))<<"e^i"<<arg(complex<float>(fftX[0].at<float>(0,m),fftX[1].at<float>(0,m)))<<" at "<<m<<endl;
     }
     float maxMagnY=0.0,maxPhasY=0.0;
     for(int m=0; m<magnY.cols; m++){
@@ -201,16 +213,21 @@ for(int i = 0; i < picWidth; i++)
 */
 
     imshow("Gray version", displayer);
+    /*vector<KeyPoint> kp;
+    FAST(~bgCleaned,&kp,20);
+    for(int i=0;i<kp.size()<i++){
+        cout<<kp[i]<<endl;
+    }*/
     imshow("Cleaned background", bgCleaned);
     imshow("Mask background", bgMask);
     imshow("histogramGrayLevels", histoDisplay);
 
-    resize(fftX[0],fftX[0],Size(fftX[0].cols,30));
-    normalize(fftX[0],fftX[0]);
+    //resize(fftX[0],fftX[0],Size(fftX[0].cols,30));
+    resize(histoX,fftX[0],Size(histoX.size(),30));
+    //normalize(fftX[0],fftX[0]);
     imshow("Histo X in C",fftX[0]);
-    resize(fftX[0],fftX[0],Size(fftX[0].cols,30));
-    imshow("Histo X in C", fftX[0]);
-    resize(fftY[0],fftY[0],Size(fftY[0].cols,30));
+    //resize(fftY[0],fftY[0],Size(fftY[0].cols,30));
+    resize(histoY,fftY[0],Size(histoY.size(),30));
     imshow("Histo Y in C", fftY[0]);
 
 

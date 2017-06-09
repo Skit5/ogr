@@ -816,7 +816,7 @@
 1496875351 source:/home/youness/Documents/opencv scripts/colorSegmentation.cpp
 	"colorSegmentation.h"
 
-1496766827 /home/youness/Documents/opencv scripts/colorSegmentation.h
+1496961201 /home/youness/Documents/opencv scripts/colorSegmentation.h
 	<opencv2/opencv.hpp>
 	<opencv2/core/core.hpp>
 	<opencv2/highgui/highgui.hpp>
@@ -826,6 +826,7 @@
 	<iterator>
 	<string>
 	<math.h>
+	<complex>
 
 1496585915 /home/youness/Documents/opencv scripts/colorSegmentation.cpp
 	"colorSegmentation.h"
