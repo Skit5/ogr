@@ -144,6 +144,134 @@ for(int i = 0; i < picWidth; i++)
         }
 
     }
+    /*
+    //
+    // evaluate distances
+    //
+    float threshHisto = 0.0;
+    int counter=0, lambdaX;
+    vector<int> distanceX;
+    for(int u = 0; u<picWidth; u++){
+        if(histoX[u]>threshHisto){
+            if(counter>0){
+                distanceX.push_back(counter);
+                counter=0;
+            }
+
+        }else{
+            counter++;
+        }
+    }
+    // Get Median
+    sort(distanceX.begin(),distanceX.end());
+    if(distanceX.size()%2 == 0)
+        lambdaX = round((distanceX[distanceX.size()/2-1] + distanceX[distanceX.size()/2])/2);
+    else
+        lambdaX = distanceX[distanceX.size()/2];
+    //
+    // Same process for Y
+    //
+    int lambdaY;
+    vector<int> distanceY;
+    for(int v = 0; v<picHeight; v++){
+        if(histoY[v]>threshHisto){
+            if(counter>0){
+                distanceY.push_back(counter);
+                counter=0;
+            }
+
+        }else{
+            counter++;
+        }
+    }
+    // Get Median
+    sort(distanceY.begin(),distanceY.end());
+    if(distanceY.size()%2 == 0)
+        lambdaY = round((distanceY[distanceY.size()/2-1] + distanceY[distanceY.size()/2])/2);
+    else
+        lambdaY = distanceY[distanceY.size()/2];
+
+    //
+    // Now that we have the wavelength lambda
+    // We need to find the borders of the graph area
+    //
+    int subAX=0, subAY=0, subBX=0, subBY=0,
+    histMargin=1, k=floor(picWidth/lambdaX),
+    bestLocatStart=0, bestLocatEnd=0, searchSpace=picWidth;
+    float bestScore=0.0;
+    for(int u = 0; u<searchSpace; u++){
+        if(histoX[u]>threshHisto){
+            if(searchSpace==picWidth)
+                searchSpace = u+lambdaX;
+            float score=0.0;
+            for(int w = 0; w<k-ceil(u/k); w++)
+                score += histoX[w];
+            // We got a temporary subAX
+            if(score>bestScore){
+                bestScore = score;
+                bestLocatStart = u;
+                bestLocatEnd = 0;
+                // We can now search for the subBX if it exists
+                for(int z = picWidth; (z > u) || (bestLocatEnd==0); z--){
+                    if(histoX[z]>threshHisto){
+                        // if the difference between start and end is a multiple of
+                        // the k wavelength within a given error margin, we set it
+                        if((z-u)%k<=histMargin)
+                            bestLocatEnd = z;
+                    }
+                }
+            }
+        }
+    }
+    subAX = bestLocatStart;
+    subBX = bestLocatEnd;
+    // Again for Y
+    searchSpace = picHeight;
+    k=floor(picHeight/lambdaY);
+    bestScore = 0;
+    for(int v = 0; v<searchSpace; v++){
+        if(histoY[v]>threshHisto){
+            if(searchSpace==picHeight)
+                searchSpace = v+lambdaY;
+            float score=0.0;
+            for(int w = 0; w<k-ceil(v/k); w++)
+                score += histoY[w];
+            // We got a temporary subAX
+            if(score>bestScore){
+                bestScore = score;
+                bestLocatStart = v;
+                bestLocatEnd = 0;
+                // We can now search for the subBX if it exists
+                for(int z = picHeight; (z > v) || (bestLocatEnd==0); z--){
+                    if(histoY[z]>threshHisto){
+                        // if the difference between start and end is a multiple of
+                        // the k wavelength within a given error margin, we set it
+                        if((z-v)%k<=histMargin)
+                            bestLocatEnd = z;
+                    }
+                }
+            }
+        }
+    }
+    subAY = bestLocatStart;
+    subBY = bestLocatEnd;
+
+
+    cout<<"Axe X = [ "<<subAX<<" : "<<lambdaX<<" : "<<subBX<<" ]"<<endl;
+    cout<<"Axe Y = [ "<<subAY<<" : "<<lambdaY<<" : "<<subBY<<" ]"<<endl;
+
+
+    cout<<"median lambdaX:"<<lambdaX<<" && median lambdaY:"<<lambdaY<<endl;
+    for(vector<int>::const_iterator i = distanceY.begin(); i!= distanceY.end(); i++)
+        cout<<*i<<endl;
+*/
+    vector<int> rangeX,rangeY;
+    rangeX=axisScan(histoX);
+    //rangeY=axisScan(histoY);
+
+    cout<<"X range ["<<rangeX[0]<<":"<<rangeX[2]<<":"<<rangeX[1]<<"]"<<endl;
+    //cout<<"Y range ["<<rangeY[0]<<":"<<rangeY[2]<<":"<<rangeY[1]<<"]"<<endl;
+
 
     /*float imagX[picWidthMargin]={},imagY[picHeightMargin]={},
            complexX[picWidthMargin]={},complexY[picHeightMargin]={};
@@ -152,7 +280,7 @@ for(int i = 0; i < picWidth; i++)
     dft(complexX,complexX);
     split(complexX,planes);
     */
-    Mat complexX,
+    /*Mat complexX,
         complexY,
         fftX[] = {Mat::zeros(histoX.size(),1,CV_32F),Mat::zeros(histoX.size(),1,CV_32F)},
         fftY[] = {Mat::zeros(histoY.size(),1,CV_32F),Mat::zeros(histoY.size(),1,CV_32F)};
@@ -202,7 +330,7 @@ for(int i = 0; i < picWidth; i++)
 
         }
         //cout<<histoX[u]<<endl;
-    }
+    }*/
 
 //    for(int u = 0; u < ceil(picWidth/histKernel); u += histKernel)
 
@@ -222,14 +350,87 @@ for(int i = 0; i < picWidth; i++)
     imshow("Mask background", bgMask);
     imshow("histogramGrayLevels", histoDisplay);
 
+    Mat enlargedHistoX, enlargedHistoY;
     //resize(fftX[0],fftX[0],Size(fftX[0].cols,30));
-    resize(histoX,fftX[0],Size(histoX.size(),30));
+    resize(histoX,enlargedHistoX,Size(histoX.size(),30));
     //normalize(fftX[0],fftX[0]);
-    imshow("Histo X in C",fftX[0]);
+    imshow("Histo X in C",enlargedHistoX);
     //resize(fftY[0],fftY[0],Size(fftY[0].cols,30));
-    resize(histoY,fftY[0],Size(histoY.size(),30));
-    imshow("Histo Y in C", fftY[0]);
+    resize(histoY,enlargedHistoY,Size(histoY.size(),30));
+    imshow("Histo Y in C", enlargedHistoY);
 
 
     return 0;
+}
+
+vector<int> pretreatment::axisScan(vector<float>histoX, float threshHisto, int histMargin){
+   //
+    // evaluate distances
+    //
+    int picWidth = histoX.size();
+    int counter=0, lambdaX;
+    vector<int> distanceX;
+    for(int u = 0; u<picWidth; u++){
+        if(histoX[u]>threshHisto){
+            if(counter>0){
+                distanceX.push_back(counter);
+                counter=0;
+            }
+        }else{
+            counter++;
+        }
+    }
+    // Get Median
+    sort(distanceX.begin(),distanceX.end());
+    //for(vector<int>::const_iterator n=distanceX.begin(); n!=distanceX.end(); n++)
+    //    cout<<*n<<endl;
+    if(distanceX.size()%2 == 0)
+        lambdaX = round((distanceX[distanceX.size()/2-1] + distanceX[distanceX.size()/2])/2);
+    else
+        lambdaX = distanceX[distanceX.size()/2];
+
+    //
+    // Now that we have the wavelength lambda
+    // We need to find the borders of the graph area
+    //
+    int subAX=0, subBX=0, k=floor(picWidth/lambdaX),
+    bestLocatStart=0, bestLocatEnd=0, searchSpace=picWidth;
+    float bestScore=0.0;
+    for(int u = 0; u<searchSpace; u++){
+        if(histoX[u]>threshHisto){
+            // Limit search space to the fittest line in 2 wavelengths
+            if(searchSpace==picWidth)
+                searchSpace = u+2*lambdaX;
+            float score=0.0;
+            for(int w = 0; w<k-ceil(u/k); w++)
+                score += histoX[w];
+            // We got a temporary subAX
+            if(score>bestScore){
+                bestScore = score;
+                bestLocatStart = u;
+                bestLocatEnd = 0;
+                //cout<<"score "<<score<<endl;
+                // We can now search for the subBX if it exists
+                for(int z = picWidth; (z > u) || (bestLocatEnd==0); z--){
+                    //cout<<histoX[z]<<" of "<<z<<" is "<<((z-u+histMargin)%k<=2*histMargin)<<endl;
+                    if(histoX[z]>threshHisto){
+                        // if the difference between start and end is a multiple of
+                        // the k wavelength within a given error margin, we set it
+                        if((z-u+histMargin)%k<=2*histMargin)
+                            bestLocatEnd = z;
+                    }
+                }
+            }
+        }
+    }
+    subAX = bestLocatStart;
+    subBX = bestLocatEnd;
+
+    vector<int> ranges;
+    ranges.push_back(subAX);
+    ranges.push_back(subBX);
+    ranges.push_back(lambdaX);
+    cout<<subAX<<subBX<<lambdaX<<endl;
+    return ranges;
+
 }

@@ -20,4 +20,5 @@ class pretreatment{
             float angle, length;
             Point *a,*b;
         };
+        static vector<int> axisScan(vector<float>, float threshHisto = 0.0, int histMargin=0);
 };
