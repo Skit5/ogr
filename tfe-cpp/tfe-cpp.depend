@@ -813,10 +813,10 @@
 1496423052 /usr/local/include/opencv2/highgui/highgui.hpp
 	"opencv2/highgui.hpp"
 
-1496875351 source:/home/youness/Documents/opencv scripts/colorSegmentation.cpp
+1497099548 source:/home/youness/Documents/opencv scripts/colorSegmentation.cpp
 	"colorSegmentation.h"
 
-1497095932 /home/youness/Documents/opencv scripts/colorSegmentation.h
+1497099706 /home/youness/Documents/opencv scripts/colorSegmentation.h
 	<opencv2/opencv.hpp>
 	<opencv2/core/core.hpp>
 	<opencv2/highgui/highgui.hpp>

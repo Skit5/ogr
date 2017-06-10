@@ -267,11 +267,16 @@ for(int i = 0; i < picWidth; i++)
 */
     vector<int> rangeX,rangeY;
     rangeX=axisScan(histoX);
-    //rangeY=axisScan(histoY);
+    rangeY=axisScan(histoY);
 
-    cout<<"X range ["<<rangeX[0]<<":"<<rangeX[2]<<":"<<rangeX[1]<<"]"<<endl;
+    //cout<<"X range ["<<rangeX[0]<<":"<<rangeX[2]<<":"<<rangeX[1]<<"]"<<endl;
     //cout<<"Y range ["<<rangeY[0]<<":"<<rangeY[2]<<":"<<rangeY[1]<<"]"<<endl;
 
+    Mat periodImg = bgCleaned.clone();
+    for(int u = rangeX[0]; (u<rangeX[1]) && (u<histoX.size()); u+=rangeX[2])
+        line( periodImg, Point(u, 0), Point(u, periodImg.cols), Scalar(0,0,255), 3, CV_AA);
+    for(int v = rangeY[0]; (v<rangeY[1]) && (v<histoY.size()); v+=rangeY[2])
+        line( periodImg, Point(0,v), Point(periodImg.rows,v), Scalar(0,0,255), 3, CV_AA);
 
     /*float imagX[picWidthMargin]={},imagY[picHeightMargin]={},
            complexX[picWidthMargin]={},complexY[picHeightMargin]={};
@@ -359,6 +364,8 @@ for(int i = 0; i < picWidth; i++)
     resize(histoY,enlargedHistoY,Size(histoY.size(),30));
     imshow("Histo Y in C", enlargedHistoY);
 
+    imshow("Periodic grid", periodImg);
+
 
     return 0;
 }
@@ -367,8 +374,8 @@ vector<int> pretreatment::axisScan(vector<float>histoX, float threshHisto, int h
    //
     // evaluate distances
     //
-    int picWidth = histoX.size();
-    int counter=0, lambdaX;
+    int counter=0, picWidth = histoX.size();
+    float lambdaX;
     vector<int> distanceX;
     for(int u = 0; u<picWidth; u++){
         if(histoX[u]>threshHisto){
@@ -385,7 +392,7 @@ vector<int> pretreatment::axisScan(vector<float>histoX, float threshHisto, int h
     //for(vector<int>::const_iterator n=distanceX.begin(); n!=distanceX.end(); n++)
     //    cout<<*n<<endl;
     if(distanceX.size()%2 == 0)
-        lambdaX = round((distanceX[distanceX.size()/2-1] + distanceX[distanceX.size()/2])/2);
+        lambdaX = (distanceX[distanceX.size()/2-1] + distanceX[distanceX.size()/2])/2;
     else
         lambdaX = distanceX[distanceX.size()/2];
 
@@ -393,10 +400,27 @@ vector<int> pretreatment::axisScan(vector<float>histoX, float threshHisto, int h
     // Now that we have the wavelength lambda
     // We need to find the borders of the graph area
     //
-    int subAX=0, subBX=0, k=floor(picWidth/lambdaX),
-    bestLocatStart=0, bestLocatEnd=0, searchSpace=picWidth;
-    float bestScore=0.0;
-    for(int u = 0; u<searchSpace; u++){
+    int bestLocatStart=0, bestLocatEnd=0, searchSpace=picWidth, counterX=0;
+    int k=round(picWidth/lambdaX);
+    for(int u = 0; (u<searchSpace) && (bestLocatEnd==0) && (bestLocatStart==0); u++){
+        if(histoX[u]>threshHisto){
+            if(counterX == lambdaX){
+                bestLocatStart = u-lambdaX;
+                for(int x=0; (x<u-lambdaX) && (bestLocatStart==u-lambdaX);x++)
+                    // If value is within a threshold and location margins
+                    if((histoX[x]>threshHisto)&&((u-x+histMargin)%k<=2*histMargin))
+                        bestLocatStart = x;
+
+                for(int x=picWidth; (x>u) && (bestLocatEnd==0);x--)
+                    if((histoX[x]>threshHisto)&&((x-u+histMargin)%k<=2*histMargin))
+                        bestLocatEnd = x;
+            }
+            counterX = 0;
+        }
+        else
+            counterX++;
+    }
+        /*
         if(histoX[u]>threshHisto){
             // Limit search space to the fittest line in 2 wavelengths
             if(searchSpace==picWidth)
@@ -425,12 +449,12 @@ vector<int> pretreatment::axisScan(vector<float>histoX, float threshHisto, int h
     }
     subAX = bestLocatStart;
     subBX = bestLocatEnd;
-
+    */
     vector<int> ranges;
-    ranges.push_back(subAX);
-    ranges.push_back(subBX);
+    ranges.push_back(bestLocatStart);
+    ranges.push_back(bestLocatEnd);
     ranges.push_back(lambdaX);
-    cout<<subAX<<subBX<<lambdaX<<endl;
+    cout<<bestLocatStart<<bestLocatEnd<<lambdaX<<endl;
     return ranges;
 
 }
