@@ -1,10 +1,15 @@
 #include"colorSegmentation.h"
-int pretreatment::colorSegmentation ( IplImage * img )
+int pretreatment::colorSegmentation ( Mat * img )
 {
-    IplImage *img_gray = cvCreateImage(cvGetSize(img), img->depth, 1);
-    cvConvertImage(img, img_gray);
+
+    Mat img_gray(img->size(), img->depth(), 1);
+    //img->convertTo(img_gray);
+    cvtColor(*img,img_gray,CV_BGR2GRAY);
     //cvShowImage("Gray image", img_gray);
-    Mat displayer = cvarrToMat(img_gray);
+    Mat displayer(img_gray);
+    //Mat imgHsv = cvarrToMat(convertRGBtoHSV(img));
+    //cvtColor(cvarrToMat(img), imgHsv, CV_RGB2HSV);
+    //cvtColor(imgHsv,imgHsv,CV_BGR2HSV);
     /*vector<Vec2f> lines;
     HoughLines(displayer, lines, 1, CV_PI/180, 100, 0, 0 );
 
@@ -111,13 +116,15 @@ for(int i = 0; i < picWidth; i++)
 
     //Canny(displayer, displayer, 50, 200, 3);
     //cornerHarris
-
+    Mat maskArea = bgMask.clone();
     vector<Vec4i> lines;
     //vector<segment> segments;
 
-    int histoMargin = 1,
+    int histoMargin = 2,
         picWidthMargin = (int)getOptimalDFTSize(picWidth/histoMargin),
-        picHeightMargin = (int)getOptimalDFTSize(picHeight/histoMargin);
+        picHeightMargin = (int)getOptimalDFTSize(picHeight/histoMargin),
+        xCounter = 0, yCounter = 0, xSizer = 0, ySizer = 0,
+        minX = round(picHeight/2), minY=round(picWidth/2), maxX=minX, maxY=minY;
     vector<float> histoX(picWidthMargin), histoY(picHeightMargin);
 
     HoughLinesP(bgMask, lines, 1, CV_PI/180, 50, 50, 5 );
@@ -135,15 +142,95 @@ for(int i = 0; i < picWidth; i++)
             new Point(l[2],l[3])            //b
         });*/
 
-        if(abs(l[0]-l[2])<= histoMargin ){
+        if((abs(l[0]-l[2])<= histoMargin)&&(lineLength>picHeight/2.2)){
             histoX[(int)floor(l[0]/histoMargin)] += lineLength/(picHeight*histoMargin);
             line( displayer, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 3, CV_AA);
-        }else if(abs(l[1]-l[3])<= histoMargin ){
+            //line( maskArea, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 2, CV_AA);
+            ++xCounter;
+            int xloc = round((l[0]+l[2])/2);
+            //cout<<xloc<<endl;
+            if( xloc < minX ){
+                minX = xloc;
+                xSizer = lineLength;
+            }else if (xloc > maxX)
+                maxX = xloc;
+        }else if((abs(l[1]-l[3])<= histoMargin )&&(lineLength>picWidth/2.2)){
             histoY[(int)floor(l[1]/histoMargin)] += lineLength/(picWidth*histoMargin);
             line( displayer, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 3, CV_AA);
+            //line( maskArea, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 2, CV_AA);
+            ++yCounter;
+            int yloc = round((l[1]+l[3])/2);
+            if( yloc < minY )
+                minY = yloc;
+            else if (yloc > maxY){
+                maxY = yloc;
+                ySizer = lineLength;
+            }
         }
 
     }
+
+    if((maxX <= round(picHeight/2))||(xCounter<2))
+        maxX = minX + ySizer;
+
+    if((minY >= round(picWidth/2))||(yCounter<2))
+        minY = abs(maxY - xSizer);
+
+    cout<<"X::["<<minX<<","<<maxX<<"]"<<picWidth<<endl;
+    cout<<"Y::["<<minY<<","<<maxY<<"]"<<picHeight<<endl;
+
+
+// WE GOT THE AREA
+
+
+    for(int u=0; u<picWidth;++u){
+        for(int v=0; v<picHeight;++v){
+            if((u>=maxX)||(u<=minX)||(v>=maxY)||(v<=minY))
+                maskArea.at<uchar>(v,u) = 0;
+        }
+    }
+    //maskArea = cv2cvtColor(cvarrToMat(img), imgHsv, CV_BGR2HSV)
+
+    //imwrite("graph6-reduced.png", maskArea);
+
+    int lineSize = 1;
+    Mat elementVer = getStructuringElement(MORPH_CROSS,Size(lineSize,(maxX-minX)/120));
+    morphologyEx(maskArea, maskArea, MORPH_ERODE, elementVer, Point(-1,-1));
+    morphologyEx(maskArea, maskArea, MORPH_DILATE, elementVer, Point(-1,-1));
+    Mat elementHor = getStructuringElement(MORPH_CROSS,Size((maxY-minY)/120,lineSize));
+    morphologyEx(maskArea, maskArea, MORPH_ERODE, elementHor, Point(-1,-1));
+    morphologyEx(maskArea, maskArea, MORPH_DILATE, elementHor, Point(-1,-1));
+
+// WE GOT THE CURVES! (mais faut penser à améliorer ça
+    //Mat hsv = cvarrToMat(img);
+    //IplImage * imgHSV = cvCreateImage(cvGetSize(img), img->depth, img->nChannels);
+    //cvCvtColor(img, imgHSV, CV_BGR2HSV);
+    //cout<<"color img"<<CV_IMAGE_ELEM(img, Scalar, 140,100)<<endl;
+    //cvtColor(hsv,hsv,COLOR_BGR2HSV);
+    //imshow("la",hsv);
+    //cvShowImage("lo",imgHSV);
+    //imwrite("graph6-no-axises.png", maskArea);
+
+    /*float threshSV = 0.9;
+
+    for(int u=minX; u<maxX;++u){
+        for(int v=minY; v<maxY;++v){
+            if(maskArea.at<uchar>(v,u) != 0){
+                cout<<"("<<imgHsv.at<Scalar>(v,u)[0]<<","<<imgHsv.at<Scalar>(v,u)[1]<<","<<imgHsv.at<Scalar>(v,u)[2]<<endl;
+                if(sqrt(imgHsv.at<Scalar>(v,u)[1]*imgHsv.at<Scalar>(v,u)[2])< threshSV)
+                    maskArea.at<uchar>(v,u) = 0;
+            }
+        }
+    }*/
+    //imshow("bla",imgHsv);
+    // Sample line thickness
+    /*int sumLines = 0, countThick = 0, yloc=round(picHeight/2);
+    for(int z=minX;z<maxX;++z){
+        if(maskArea.at<uchar>(yloc,z))
+    }*/ // Nah let's say it's 2-3 pix thick
+
+
+
     /*
     //
     // evaluate distances
@@ -265,18 +352,18 @@ for(int i = 0; i < picWidth; i++)
     for(vector<int>::const_iterator i = distanceY.begin(); i!= distanceY.end(); i++)
         cout<<*i<<endl;
 */
-    vector<int> rangeX,rangeY;
-    rangeX=axisScan(histoX);
-    rangeY=axisScan(histoY);
+    //vector<int> rangeX,rangeY;
+    //rangeX=axisScan(histoX);
+    //rangeY=axisScan(histoY);
 
     //cout<<"X range ["<<rangeX[0]<<":"<<rangeX[2]<<":"<<rangeX[1]<<"]"<<endl;
     //cout<<"Y range ["<<rangeY[0]<<":"<<rangeY[2]<<":"<<rangeY[1]<<"]"<<endl;
 
-    Mat periodImg = bgCleaned.clone();
-    for(int u = rangeX[0]; (u<rangeX[1]) && (u<histoX.size()); u+=rangeX[2])
-        line( periodImg, Point(u, 0), Point(u, periodImg.cols), Scalar(0,0,255), 3, CV_AA);
-    for(int v = rangeY[0]; (v<rangeY[1]) && (v<histoY.size()); v+=rangeY[2])
-        line( periodImg, Point(0,v), Point(periodImg.rows,v), Scalar(0,0,255), 3, CV_AA);
+    //Mat periodImg = bgCleaned.clone();
+    //for(int u = rangeX[0]; (u<rangeX[1]) && (u<histoX.size()); u+=rangeX[2])
+    //    line( periodImg, Point(u, 0), Point(u, periodImg.cols), Scalar(0,0,255), 3, CV_AA);
+    //for(int v = rangeY[0]; (v<rangeY[1]) && (v<histoY.size()); v+=rangeY[2])
+    //    line( periodImg, Point(0,v), Point(periodImg.rows,v), Scalar(0,0,255), 3, CV_AA);
 
     /*float imagX[picWidthMargin]={},imagY[picHeightMargin]={},
            complexX[picWidthMargin]={},complexY[picHeightMargin]={};
@@ -364,7 +451,12 @@ for(int i = 0; i < picWidth; i++)
     resize(histoY,enlargedHistoY,Size(histoY.size(),30));
     imshow("Histo Y in C", enlargedHistoY);
 
-    imshow("Periodic grid", periodImg);
+    //imshow("Periodic grid", periodImg);
+
+    //imwrite("graph4-hough.jpg", displayer);
+    //imwrite("graph4-houghX.jpg", enlargedHistoX);
+    //imwrite("graph4-houghY.jpg", enlargedHistoY);
+    imshow("Mask workable zone", maskArea);
 
 
     return 0;
@@ -401,18 +493,18 @@ vector<int> pretreatment::axisScan(vector<float>histoX, float threshHisto, int h
     // We need to find the borders of the graph area
     //
     int bestLocatStart=0, bestLocatEnd=0, searchSpace=picWidth, counterX=0;
-    int k=round(picWidth/lambdaX);
+    float k=picWidth/lambdaX;
     for(int u = 0; (u<searchSpace) && (bestLocatEnd==0) && (bestLocatStart==0); u++){
         if(histoX[u]>threshHisto){
             if(counterX == lambdaX){
                 bestLocatStart = u-lambdaX;
                 for(int x=0; (x<u-lambdaX) && (bestLocatStart==u-lambdaX);x++)
                     // If value is within a threshold and location margins
-                    if((histoX[x]>threshHisto)&&((u-x+histMargin)%k<=2*histMargin))
+                    if((histoX[x]>threshHisto)&&((u-x+histMargin)/k<=2*histMargin))
                         bestLocatStart = x;
 
                 for(int x=picWidth; (x>u) && (bestLocatEnd==0);x--)
-                    if((histoX[x]>threshHisto)&&((x-u+histMargin)%k<=2*histMargin))
+                    if((histoX[x]>threshHisto)&&((x-u+histMargin)/k<=2*histMargin))
                         bestLocatEnd = x;
             }
             counterX = 0;

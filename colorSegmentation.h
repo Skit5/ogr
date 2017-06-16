@@ -13,9 +13,9 @@ using namespace cv;
 using namespace std;
 class pretreatment{
     private:
-        static IplImage *img_gray;
+        static Mat *img_gray;
     public:
-        static int colorSegmentation ( IplImage * );
+        static int colorSegmentation ( Mat * );
         struct segment {
             float angle, length;
             Point *a,*b;
