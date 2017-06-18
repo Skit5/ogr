@@ -8,7 +8,7 @@ int main ( int argc, char **argv )
     using namespace cv;
 
     //IplImage *initialPicture(0);
-    Mat initialPicture;
+    Mat initialPicture, hsvPic;
     /*try{
         initialPicture = cvLoadImage(argv[1]);
     }catch(const int * e)
@@ -21,7 +21,7 @@ int main ( int argc, char **argv )
     }else{
         initialPicture = imread("/home/youness/Documents/dataset/graph6.png",CV_LOAD_IMAGE_COLOR);
     }
-
+    cvtColor(initialPicture,hsvPic,CV_BGR2HSV);
   //Mat img(480, 640, CV_8UC3);
   //putText(img, "Hello World!", Point( 200, 200 ), FONT_HERSHEY_SIMPLEX | FONT_ITALIC, 1.0, Scalar( 100, 210, 20 ));
   //imshow("My Window", img);
@@ -29,6 +29,7 @@ int main ( int argc, char **argv )
 
     //cvShowImage("Raw image", initialPicture);
     pretreatment::colorSegmentation(&initialPicture);
+    //imshow("yo",hsvPic);
     waitKey();
     return 0;
 }

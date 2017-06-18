@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1497587784 source:/home/youness/Documents/opencv scripts/main.cpp
+1497745512 source:/home/youness/Documents/opencv scripts/main.cpp
 	<opencv2/opencv.hpp>
 	<opencv2/core/core.hpp>
 	<opencv2/highgui/highgui.hpp>
@@ -813,10 +813,10 @@
 1496423052 /usr/local/include/opencv2/highgui/highgui.hpp
 	"opencv2/highgui.hpp"
 
-1497587726 source:/home/youness/Documents/opencv scripts/colorSegmentation.cpp
+1497782077 source:/home/youness/Documents/opencv scripts/colorSegmentation.cpp
 	"colorSegmentation.h"
 
-1497587037 /home/youness/Documents/opencv scripts/colorSegmentation.h
+1497770870 /home/youness/Documents/opencv scripts/colorSegmentation.h
 	<opencv2/opencv.hpp>
 	<opencv2/core/core.hpp>
 	<opencv2/highgui/highgui.hpp>

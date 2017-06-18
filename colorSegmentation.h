@@ -7,13 +7,14 @@
 #include <iterator>
 #include <string>
 #include <math.h>
-#include<complex>
+#include <complex>
 
 using namespace cv;
 using namespace std;
 class pretreatment{
     private:
         static Mat *img_gray;
+        static Mat *img_hsv;
     public:
         static int colorSegmentation ( Mat * );
         struct segment {
@@ -21,4 +22,8 @@ class pretreatment{
             Point *a,*b;
         };
         static vector<int> axisScan(vector<float>, float threshHisto = 0.0, int histMargin=1);
+        // Defining a gaussian curve structure for the histogram
+        struct gaussianCurve{
+            int variance, mean;
+        };
 };

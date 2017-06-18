@@ -2,11 +2,12 @@
 int pretreatment::colorSegmentation ( Mat * img )
 {
 
-    Mat img_gray(img->size(), img->depth(), 1);
+    Mat displayer(img->size(), img->depth(), 1),
+        img_hsv(img->size(), img->depth(), 3);
     //img->convertTo(img_gray);
-    cvtColor(*img,img_gray,CV_BGR2GRAY);
+    cvtColor(*img,displayer,CV_BGR2GRAY);
     //cvShowImage("Gray image", img_gray);
-    Mat displayer(img_gray);
+    cvtColor(*img,img_hsv,CV_BGR2HSV);
     //Mat imgHsv = cvarrToMat(convertRGBtoHSV(img));
     //cvtColor(cvarrToMat(img), imgHsv, CV_RGB2HSV);
     //cvtColor(imgHsv,imgHsv,CV_BGR2HSV);
@@ -31,8 +32,8 @@ int pretreatment::colorSegmentation ( Mat * img )
 //  Gaussian approximation of background
 ******************************************/
 int sumBorders = 0;
-int picWidth = displayer.cols;
-int picHeight = displayer.rows;
+int picWidth = img->cols;
+int picHeight = img->rows;
 int histogram[256] =  {};
 int nbrPixBorders = 2*(picHeight+picWidth)-4;
 
@@ -201,7 +202,119 @@ for(int i = 0; i < picWidth; i++)
     morphologyEx(maskArea, maskArea, MORPH_ERODE, elementHor, Point(-1,-1));
     morphologyEx(maskArea, maskArea, MORPH_DILATE, elementHor, Point(-1,-1));
 
-// WE GOT THE CURVES! (mais faut penser à améliorer ça
+
+
+// WE GOT THE CURVES! (mais faut penser à améliorer ça)
+
+// Filtering by saturation and value
+// Generating a histogram of hues
+int hues[256] = {};
+for(int u=0; u<maskArea.cols;++u){
+    for(int v=0; v<maskArea.rows;++v){
+        if(maskArea.at<uchar>(v,u)>0){
+            Vec3b hsvVal = img_hsv.at<Vec3b>(v,u);
+            int h = hsvVal.val[0],
+            s = hsvVal.val[1],
+            l = hsvVal.val[2];
+            float sv = sqrt(s*l/pow(255,2));
+            if(sv>0.4){
+                ++hues[h];
+            }
+        }
+    }
+}
+
+int maxHue = 0;
+for(int l=0; l<256; ++l)
+    if(hues[l]>maxHue)
+        maxHue = hues[l];
+
+
+// Extracting every color domain
+bool flagUp = false;
+gaussianCurve currentCurve;
+vector<gaussianCurve> colorCurves;
+int sum = 0, weightedSum = 0, higherBound = 0, lowerBound = 0, toleranceThreshold = 0, thresholdCounter = 1;
+for(int l=0; l<256; ++l){
+    // Test at 20% of the max value
+    if(hues[l]>=maxHue*0.2){
+        // reset buffers with new curve starting
+        if(!flagUp){
+            flagUp = true;
+            currentCurve = {0,0};
+            lowerBound = l;
+            higherBound = l;
+            sum = 0;
+            weightedSum = 0;
+        }
+        sum += hues[l];
+        weightedSum += hues[l]*l;
+    }else{
+        if(flagUp){
+            // We calculate the curve parameters
+            flagUp = false;
+            higherBound = l;
+            currentCurve.mean = round(weightedSum/sum);
+            double varianceWeightedSum = 0;
+            for(int k=lowerBound; k<higherBound; ++k)
+                varianceWeightedSum += pow(hues[k]*(k-currentCurve.mean),2);
+            //cout<<varianceWeightedSum<<endl;
+            currentCurve.variance = round(sqrt(varianceWeightedSum)/sum);
+            // And transfer it from buffer to vector
+            colorCurves.push_back(currentCurve);
+        }
+    }
+}
+
+vector<Mat> curveMasks;
+cout<<"==Detected colors=="<<endl;
+for(int a=0; a<colorCurves.size(); ++a){
+    curveMasks.push_back(maskArea.clone());
+    cout<<"mean :"<<colorCurves[a].mean<<" variance:"<<colorCurves[a].variance<<endl;
+}
+//Mat bufferMat = maskArea.clone();
+for(int u=0; u<maskArea.cols;++u){
+    for(int v=0; v<maskArea.rows;++v){
+        //cout<<(int)maskArea.at<uchar>(v,u)<<endl;
+        if((int)maskArea.at<uchar>(v,u)>0){
+                //cout<<(int)maskArea.at<uchar>(v,u)<<endl;
+
+            Vec3b hsvVal = img_hsv.at<Vec3b>(v,u);
+            int currentHue = (int)hsvVal[0];
+            //cout<<currentHue<<endl;
+            for(vector<gaussianCurve>::const_iterator n=colorCurves.begin(); n!=colorCurves.end(); ++n)
+                // Test at µ(+/-)sigma
+                if((currentHue >= (n->mean - n->variance))&&(currentHue <= (n->mean + n->variance)))
+                //if((hsvVal[0] >= n->lowerBound)&&(hsvVal[0] <= n->higherBound))
+                    curveMasks[n-colorCurves.begin()].at<uchar>(v,u) = 255;
+                    //cout<<hsvVal<<" "<<n-colorCurves.begin()<<endl<<"µ :"<<n->mean<<" var :"<<n->variance<<" s "<<colorCurves.size()<<endl;
+                else
+                    curveMasks[n-colorCurves.begin()].at<uchar>(v,u) = 0;
+        }
+    }
+}
+
+for(vector<Mat>::const_iterator m=curveMasks.begin(); m!=curveMasks.end(); ++m){
+    int ku = m-curveMasks.begin();
+    //cout<<colorCurves[ku].mean<<endl;
+    vector<KeyPoint> kp;
+    FAST(curveMasks[ku],kp,0,true);
+    for(vector<KeyPoint>::const_iterator n=kp.begin(); n!=kp.end(); ++n){
+        Point2f ptf = n->pt;
+        for(int ux=(int)round(ptf.x)-3;ux<(int)round(ptf.x)+3;++ux)
+            for(int uy=(int)round(ptf.y)-3;uy<(int)round(ptf.y)+3;++uy)
+                curveMasks[ku].at<uchar>(uy,ux) = 160;
+    }
+
+
+    string labelh("layer hue %d",colorCurves[ku].mean);
+    imshow(labelh,curveMasks[ku]);
+}
+
+
+
+
+
     //Mat hsv = cvarrToMat(img);
     //IplImage * imgHSV = cvCreateImage(cvGetSize(img), img->depth, img->nChannels);
     //cvCvtColor(img, imgHSV, CV_BGR2HSV);
@@ -432,7 +545,7 @@ for(int i = 0; i < picWidth; i++)
     }
 */
 
-    imshow("Gray version", displayer);
+    //imshow("Gray version", displayer);
     /*vector<KeyPoint> kp;
     FAST(~bgCleaned,&kp,20);
     for(int i=0;i<kp.size()<i++){
@@ -461,6 +574,7 @@ for(int i = 0; i < picWidth; i++)
 
     return 0;
 }
+
 
 vector<int> pretreatment::axisScan(vector<float>histoX, float threshHisto, int histMargin){
    //
