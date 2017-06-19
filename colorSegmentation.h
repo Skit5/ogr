@@ -8,6 +8,7 @@
 #include <string>
 #include <math.h>
 #include <complex>
+#include <algorithm>
 
 using namespace cv;
 using namespace std;
@@ -16,14 +17,23 @@ class pretreatment{
         static Mat *img_gray;
         static Mat *img_hsv;
     public:
-        static int colorSegmentation ( Mat * );
         struct segment {
             float angle, length;
             Point *a,*b;
         };
-        static vector<int> axisScan(vector<float>, float threshHisto = 0.0, int histMargin=1);
         // Defining a gaussian curve structure for the histogram
         struct gaussianCurve{
             int variance, mean;
         };
+        struct splineCubic{
+            float a, b, c, d;
+            int lowerBound, higherBound, hue;
+        };
+        struct extractedGraph{
+            int xmin, xmax, ymin, ymax;
+            vector<splineCubic> splinesP, splinesC;
+        };
+        static extractedGraph colorSegmentation ( Mat * );
+        static vector<int> axisScan(vector<float>, float threshHisto = 0.0, int histMargin=1);
+
 };

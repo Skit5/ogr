@@ -1,5 +1,6 @@
 #include"colorSegmentation.h"
-int pretreatment::colorSegmentation ( Mat * img )
+
+pretreatment::extractedGraph pretreatment::colorSegmentation ( Mat * img )
 {
 
     Mat displayer(img->size(), img->depth(), 1),
@@ -294,6 +295,11 @@ for(int u=0; u<maskArea.cols;++u){
     }
 }
 
+vector<Mat> kpCurveMasks;
+vector< vector<KeyPoint> > orderedKeyPoints(curveMasks.size());
+for(int a=0; a<curveMasks.size(); ++a)
+    kpCurveMasks.push_back(curveMasks[a].clone());
+
 for(vector<Mat>::const_iterator m=curveMasks.begin(); m!=curveMasks.end(); ++m){
     int ku = m-curveMasks.begin();
     //cout<<colorCurves[ku].mean<<endl;
@@ -301,20 +307,46 @@ for(vector<Mat>::const_iterator m=curveMasks.begin(); m!=curveMasks.end(); ++m){
     FAST(curveMasks[ku],kp,0,true);
     for(vector<KeyPoint>::const_iterator n=kp.begin(); n!=kp.end(); ++n){
         Point2f ptf = n->pt;
-        for(int ux=(int)round(ptf.x)-3;ux<(int)round(ptf.x)+3;++ux)
-            for(int uy=(int)round(ptf.y)-3;uy<(int)round(ptf.y)+3;++uy)
-                curveMasks[ku].at<uchar>(uy,ux) = 160;
+        int ptfRadius = round(n->size/2);
+        /*for(vector<KeyPoint>::const_iterator d=kpBuff.begin(); d!=kpBuff.end(); ++d){
+            if(ptf.x < d->x){
+                //kpBuff.insert(d,ptf);
+                d = kpBuff.end();
+            }
+        }*/
+
+        for(int ux=(int)round(ptf.x)-ptfRadius;ux<(int)round(ptf.x)+ptfRadius;++ux)
+            for(int uy=(int)round(ptf.y)-ptfRadius;uy<(int)round(ptf.y)+ptfRadius;++uy)
+                kpCurveMasks[ku].at<uchar>(uy,ux) = 120;
     }
 
+    //stable_sort(kp.begin(),kp.end(),KeyPointComparator());
+    sort(kp.begin(),kp.end(), [](KeyPoint a, KeyPoint b){
+        return (a.pt.x < b.pt.x);
+    });
+    orderedKeyPoints[ku] = kp;
 
-    string labelh("layer hue %d",colorCurves[ku].mean);
-    imshow(labelh,curveMasks[ku]);
+
+    string labelh("layer hue %d",(int)colorCurves[ku].mean);
+    imshow(labelh,kpCurveMasks[ku]);
 }
 
+// Cubic interpolation
+vector<splineCubic> torques, powers, splinesBuffer;
+int maxBin = round((maxX-minX)*0.05), minBin = round((maxX-minX)*0.005);
+for(vector<Mat>::const_iterator z=curveMasks.begin(); z!=curveMasks.end(); ++z){
+    for(int u=minX; u<maxX;++u){
+        for(vector< vector<KeyPoint> >::const_iterator k=orderedKeyPoints.begin(); k!=orderedKeyPoints.end(); ++k){
 
+        }
+    }
 
+    /*for(int u=minX; u<maxX;++u){
+        for(int v=minY; v<maxY;++v){
 
-
+        }
+    }*/
+}
     //Mat hsv = cvarrToMat(img);
     //IplImage * imgHSV = cvCreateImage(cvGetSize(img), img->depth, img->nChannels);
     //cvCvtColor(img, imgHSV, CV_BGR2HSV);
@@ -571,8 +603,15 @@ for(vector<Mat>::const_iterator m=curveMasks.begin(); m!=curveMasks.end(); ++m){
     //imwrite("graph4-houghY.jpg", enlargedHistoY);
     imshow("Mask workable zone", maskArea);
 
+    extractedGraph graphOutput;
+    graphOutput.xmax = maxX;
+    graphOutput.xmin = minX;
+    graphOutput.ymax = maxY;
+    graphOutput.ymin = minY;
+    graphOutput.splinesC = torques;
+    graphOutput.splinesP = powers;
 
-    return 0;
+    return graphOutput;
 }
 
 
