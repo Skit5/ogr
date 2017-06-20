@@ -353,14 +353,16 @@ for(vector< vector<KeyPoint> >::const_iterator k=orderedKeyPoints.begin(); k!=or
     KeyPoint maxKp;
     for(vector<KeyPoint>::const_iterator l=k->begin(); l!=k->end(); ++l){
         // end of bin
-        if(l->pt.x > u+minBin){
-            if(maxKp.pt.x != 0)
+        if(round(l->pt.x) > (u+minBin)){
+            //cout<<maxKp.pt.x<<endl;
+            //cout<<u+minBin<<endl;
+            if(maxKp.pt.x > 0)
                 bufferPoints.push_back(Point(round(maxKp.pt.x),round(maxKp.pt.y)));
-            u = u+minBin;
+            u = l->pt.x;
             maxKp = KeyPoint();
         }
         // test the new max of the bin
-        if(l->pt.x >= u && l->size > maxKp.size ){
+        if(round(l->pt.x) >= u && l->size > maxKp.size ){
             maxKp = *l;
         }
     }
@@ -415,8 +417,11 @@ for(vector< vector<splineCubic> >::const_iterator k=powers.begin(); k!=powers.en
                 o->c*p+
                 o->d
             );
-            cout<<"spline pt "<<p<<" "<<y<<endl;
-            //dispSplines.at<Scalar>(p,y) = Scalar(o->hue,200,200);
+            if(y<0 || y>maxY)
+                y=10;
+            cout<<"spline pt "<<p<<" "<<y<<" "<<o->hue<<endl;
+            //cout<<"spline param: a "<<o->a<<" b "<<o->b<<" c "<<o->c<<" d "<<o->d<<endl;
+            dispSplines.at<Scalar>(y,p) = Scalar(o->hue,200,200);
         }
     }
 }
@@ -698,10 +703,11 @@ imshow("my splines",dispSplines);
 vector<Vec4f> pretreatment::points2Splines(vector<Point> pts){
     //vector<splineCubic> outputSplines(nbrSplines);
     int nbrSplines = pts.size()-1;
-    vector<Vec4f> parameters(nbrSplines+2), linearApprox(nbrSplines), cubicCorrection(nbrSplines);
+    vector<Vec4f> parameters(nbrSplines+1), linearApprox(nbrSplines), cubicCorrection(nbrSplines);
     splineCubic bufferSpline;
     vector<int> h(nbrSplines);
     vector<double> alpha(nbrSplines+1), mu(nbrSplines+1), z(nbrSplines+1), l(nbrSplines+1);
+
     for(int i=0; i<nbrSplines; ++i){
         h[i] = pts[i+1].x - pts[i].x;
     }
@@ -719,15 +725,17 @@ vector<Vec4f> pretreatment::points2Splines(vector<Point> pts){
         z[i] = (alpha[i] - (h[i-1]*z[i-1]))/l[i];
     }
 
-    l[nbrSplines+1] = 1.0;
-    z[nbrSplines+1] = 0.0;
-    parameters[nbrSplines+1][2] = 0.0;
+    l[nbrSplines] = 1.0;
+    z[nbrSplines] = 0.0;
+    parameters[nbrSplines][2] = 0.0;
 
     for(int i=nbrSplines; i>0; --i){
-            parameters[i][2] = z[i]-(mu[i]*parameters[i+1][2]);
-            parameters[i][1] = ((pts[i+1].y-pts[i].y)/(float)h[i]) - (h[i]*(parameters[i+1][2]+2.0*parameters[i][2])/3.0);
-            parameters[i][3] = (parameters[i+1][2]-parameters[i][2])/(3.0*h[i]);
-            parameters[i][0] = pts[i].y;
+        //cout<<"bruuuh "<<l[i]<<" "<<mu[i]<<" "<<z[i]<<" "<<h[i]<<" "<<alpha[i]<<endl;
+        parameters[i][2] = z[i]-(mu[i]*parameters[i+1][2]);
+        parameters[i][1] = ((pts[i+1].y-pts[i].y)/(float)h[i]) - (h[i]*(parameters[i+1][2]+2.0*parameters[i][2])/3.0);
+        parameters[i][3] = (parameters[i+1][2]-parameters[i][2])/(3.0*h[i]);
+        parameters[i][0] = pts[i].y;
+        //cout<<"bruuuh "<<parameters[i][0]<<" "<<parameters[i][1]<<" "<<parameters[i][2]<<" "<<parameters[i][3]<<endl;
     }
 /*
 
