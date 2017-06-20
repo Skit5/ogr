@@ -31,9 +31,10 @@ class pretreatment{
         };
         struct extractedGraph{
             int xmin, xmax, ymin, ymax;
-            vector<splineCubic> splinesP, splinesC;
+            vector<vector<splineCubic> > splinesP, splinesC;
         };
         static extractedGraph colorSegmentation ( Mat * );
+        static vector<Vec4f> points2Splines(vector<Point>);
         static vector<int> axisScan(vector<float>, float threshHisto = 0.0, int histMargin=1);
 
 };

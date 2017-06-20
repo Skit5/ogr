@@ -331,22 +331,54 @@ for(vector<Mat>::const_iterator m=curveMasks.begin(); m!=curveMasks.end(); ++m){
     imshow(labelh,kpCurveMasks[ku]);
 }
 
-// Cubic interpolation
-vector<splineCubic> torques, powers, splinesBuffer;
-int maxBin = round((maxX-minX)*0.05), minBin = round((maxX-minX)*0.005);
-for(vector<Mat>::const_iterator z=curveMasks.begin(); z!=curveMasks.end(); ++z){
+/**
+*       Cubic Interpolation
+*   This system is made of 2 parts:
+*       - curve tracker: keeps track of the middle of the curve for every X iteration
+*       -
+*       - point indexer: transforms its 4 points queue into a spline after every KeyPoint iteration
+*
+**/
+// Première approche avec uniquement la courbe des puissances de graph6
+vector<vector<splineCubic> > torques(orderedKeyPoints.size()), powers(orderedKeyPoints.size());
+vector<splineCubic> splinesBuffer;
+vector<Point> bufferPoints;
+int maxBin = ceil((maxX-minX)*0.05), minBin = ceil((maxX-minX)*0.005);
+for(vector< vector<KeyPoint> >::const_iterator k=orderedKeyPoints.begin(); k!=orderedKeyPoints.end(); ++k){
+    int firstKeyPoint = minX, lastKeyPoint=minX,
+        maskId = k-orderedKeyPoints.begin(),
+        hue = colorCurves[maskId].mean;
+    //Mat *currentMask = curveMasks[maskId];
+    bool flagLimit = false;
     for(int u=minX; u<maxX;++u){
-        for(vector< vector<KeyPoint> >::const_iterator k=orderedKeyPoints.begin(); k!=orderedKeyPoints.end(); ++k){
+        for(vector<KeyPoint>::const_iterator l=k->begin(); l!=k->end() && !flagLimit; ++l){
+            if(l==k->begin()){
 
+                firstKeyPoint=l->pt.x;
+            }else{
+                int currentX = l->pt.x;
+            }
+        }
+        // check if buffer is full
+        // if it is, the indexer is workable
+        if (bufferPoints.size()==4){
+            splineCubic currentSpline;
+            // Spline calcul
+            splinesBuffer.push_back(currentSpline);
         }
     }
+    powers[maskId]= splinesBuffer;
+    splinesBuffer.clear();
+    bufferPoints.clear();
+}
+
 
     /*for(int u=minX; u<maxX;++u){
         for(int v=minY; v<maxY;++v){
 
         }
     }*/
-}
+
     //Mat hsv = cvarrToMat(img);
     //IplImage * imgHSV = cvCreateImage(cvGetSize(img), img->depth, img->nChannels);
     //cvCvtColor(img, imgHSV, CV_BGR2HSV);
@@ -612,6 +644,70 @@ for(vector<Mat>::const_iterator z=curveMasks.begin(); z!=curveMasks.end(); ++z){
     graphOutput.splinesP = powers;
 
     return graphOutput;
+}
+
+vector<Vec4f> pretreatment::points2Splines(vector<Point> pts){
+    //vector<splineCubic> outputSplines(nbrSplines);
+    int nbrSplines = pts.size()-1;
+    vector<Vec4f> parameters(nbrSplines), linearApprox(nbrSplines), cubicCorrection(nbrSplines);
+    splineCubic bufferSpline;
+    vector<int> h(nbrSplines);
+    vector<double> alpha(nbrSplines+1), mu(nbrSplines+1), z(nbrSplines+1), l(nbrSplines+1);
+    for(int i=0; i<nbrSplines; ++i){
+        h[i] = pts[i+1].x - pts[i].x;
+    }
+    for(int i=1; i<nbrSplines; ++i){
+        alpha[i] = ((3/h[i])*(pts[i+1].y - pts[i].y)) - ((3/h[i-1])*(pts[i].y - pts[i-1].y));
+    }
+
+    mu[0] = 0.0;
+    z[0] = 0.0;
+    l[0] = 1.0;
+
+    for(int i=1; i<nbrSplines; ++i){
+        l[i] = (2*(pts[i+1].x - pts[i-1].x)) - (h[i-1]*mu[i-1]);
+        mu[i] = h[i]/l[i];
+        z[i] = (alpha[i] - (h[i-1]*z[i-1]))/l[i];
+    }
+
+    l[nbrSplines+1] = 1.0;
+    z[nbrSplines+1] = 0.0;
+    parameters[nbrSplines+1][2] = 0.0;
+
+    for(int i=nbrSplines; i>0; --i){
+            parameters[i][2] = z[i]-(mu[i]*parameters[i+1][2]);
+            parameters[i][1] = ((pts[i+1].y-pts[i].y)/h[i]) - (h[i]*(parameters[i+1][2]+2*parameters[i][2])/3);  z[i]-(mu[i]*parameters[i+1][2]);
+            parameters[i][3] = (parameters[i+1][2]-parameters[i][2])/(3*h[i]);
+            parameters[i][0] = pts[i].y;
+    }
+/*
+
+    for(int i=0; i<nbrSplines; ++i){
+        // Determine linear parameters
+        float m = (pts[i+1].y - pts[i].y) / (pts[i+1].x - pts[i].x);
+        float p = pts[i].y - (m*pts[i].x);
+        linearApprox[i] = Vec4f(0.0,0.0,m,p);
+    }
+
+    for(int i=0; i<nbrSplines; ++i){
+        float z;
+        if(i==0 || i>=nbrSplines){
+            z = 0.0;
+        }else{
+            Vec4f   l1 =  linearApprox[i-1],
+                    l2 =  linearApprox[i],
+                    l3 =  linearApprox[i+1],
+                    l4 =  linearApprox[i+2];
+            Point   x1 = pts[i-1],
+                    x2 = pts[i],
+                    x3 = pts[i+1],
+                    x4 = pts[i+2];
+
+            z = 6*( (p2[1]*x2.x + p1[1]*x3.x - p1[1]*x2.x + 2*p2[1]*x1.x + 2*p3[1]*x3.x - 2*p3[1]*x1.x - 3*p2[1]*x3.x) / (4*(x1.x*x2.x + x3.x*x4.x - x1.x*x4.x) - pow(x2.x+x3.x,2)) );
+        }
+    }*/
+
+    return parameters;
 }
 
 
