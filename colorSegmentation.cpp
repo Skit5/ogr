@@ -349,7 +349,22 @@ for(vector< vector<KeyPoint> >::const_iterator k=orderedKeyPoints.begin(); k!=or
         maskId = k-orderedKeyPoints.begin(),
         hue = colorCurves[maskId].mean;
     //Mat *currentMask = curveMasks[maskId];
-    bool flagLimit = false;
+    int u = minX;
+    KeyPoint maxKp;
+    for(vector<KeyPoint>::const_iterator l=k->begin(); l!=k->end(); ++l){
+        // end of bin
+        if(l->pt.x > u+minBin){
+            if(maxKp.pt.x != 0)
+                bufferPoints.push_back(Point(round(maxKp.pt.x),round(maxKp.pt.y)));
+            u = u+minBin;
+            maxKp = KeyPoint();
+        }
+        // test the new max of the bin
+        if(l->pt.x >= u && l->size > maxKp.size ){
+            maxKp = *l;
+        }
+    }
+    /*bool flagLimit = false;
     for(int u=minX; u<maxX;++u){
         for(vector<KeyPoint>::const_iterator l=k->begin(); l!=k->end() && !flagLimit; ++l){
             if(l==k->begin()){
@@ -366,13 +381,47 @@ for(vector< vector<KeyPoint> >::const_iterator k=orderedKeyPoints.begin(); k!=or
             // Spline calcul
             splinesBuffer.push_back(currentSpline);
         }
+    }*/
+    vector<Vec4f> splinesParam = points2Splines(bufferPoints);
+    for(int j=0; j<bufferPoints.size(); ++j){
+        splineCubic splineBuffer = {
+            splinesParam[j][3],
+            splinesParam[j][2],
+            splinesParam[j][1],
+            splinesParam[j][0],
+            bufferPoints[j].x,
+            bufferPoints[j+1].x,
+            hue
+        };
+        //cout << bufferPoints[j].x <<endl;
+        splinesBuffer.push_back(splineBuffer);
     }
+    splinesBuffer[bufferPoints.size()-1].higherBound = maxX;
+
     powers[maskId]= splinesBuffer;
     splinesBuffer.clear();
     bufferPoints.clear();
 }
 
-
+// Display the splines
+Mat dispSplines = bgCleaned.clone();
+cvtColor(bgCleaned, dispSplines, CV_GRAY2BGR);
+for(vector< vector<splineCubic> >::const_iterator k=powers.begin(); k!=powers.end(); ++k){
+    for(vector<splineCubic>::const_iterator o=k->begin(); o!=k->end(); ++o){
+        for(int p=(o->lowerBound); p<(o->higherBound); ++p){
+            int y = round(
+                o->a*pow(p,3)+
+                o->b*pow(p,2)+
+                o->c*p+
+                o->d
+            );
+            cout<<"spline pt "<<p<<" "<<y<<endl;
+            //dispSplines.at<Scalar>(p,y) = Scalar(o->hue,200,200);
+        }
+    }
+}
+cvtColor(dispSplines, dispSplines, CV_HSV2BGR);
+imshow("my splines",dispSplines);
     /*for(int u=minX; u<maxX;++u){
         for(int v=minY; v<maxY;++v){
 
@@ -649,7 +698,7 @@ for(vector< vector<KeyPoint> >::const_iterator k=orderedKeyPoints.begin(); k!=or
 vector<Vec4f> pretreatment::points2Splines(vector<Point> pts){
     //vector<splineCubic> outputSplines(nbrSplines);
     int nbrSplines = pts.size()-1;
-    vector<Vec4f> parameters(nbrSplines), linearApprox(nbrSplines), cubicCorrection(nbrSplines);
+    vector<Vec4f> parameters(nbrSplines+2), linearApprox(nbrSplines), cubicCorrection(nbrSplines);
     splineCubic bufferSpline;
     vector<int> h(nbrSplines);
     vector<double> alpha(nbrSplines+1), mu(nbrSplines+1), z(nbrSplines+1), l(nbrSplines+1);
@@ -657,7 +706,7 @@ vector<Vec4f> pretreatment::points2Splines(vector<Point> pts){
         h[i] = pts[i+1].x - pts[i].x;
     }
     for(int i=1; i<nbrSplines; ++i){
-        alpha[i] = ((3/h[i])*(pts[i+1].y - pts[i].y)) - ((3/h[i-1])*(pts[i].y - pts[i-1].y));
+        alpha[i] = ((3.0/h[i])*(pts[i+1].y - pts[i].y)) - ((3.0/h[i-1])*(pts[i].y - pts[i-1].y));
     }
 
     mu[0] = 0.0;
@@ -665,7 +714,7 @@ vector<Vec4f> pretreatment::points2Splines(vector<Point> pts){
     l[0] = 1.0;
 
     for(int i=1; i<nbrSplines; ++i){
-        l[i] = (2*(pts[i+1].x - pts[i-1].x)) - (h[i-1]*mu[i-1]);
+        l[i] = (2.0*(pts[i+1].x - pts[i-1].x)) - (h[i-1]*mu[i-1]);
         mu[i] = h[i]/l[i];
         z[i] = (alpha[i] - (h[i-1]*z[i-1]))/l[i];
     }
@@ -676,8 +725,8 @@ vector<Vec4f> pretreatment::points2Splines(vector<Point> pts){
 
     for(int i=nbrSplines; i>0; --i){
             parameters[i][2] = z[i]-(mu[i]*parameters[i+1][2]);
-            parameters[i][1] = ((pts[i+1].y-pts[i].y)/h[i]) - (h[i]*(parameters[i+1][2]+2*parameters[i][2])/3);  z[i]-(mu[i]*parameters[i+1][2]);
-            parameters[i][3] = (parameters[i+1][2]-parameters[i][2])/(3*h[i]);
+            parameters[i][1] = ((pts[i+1].y-pts[i].y)/(float)h[i]) - (h[i]*(parameters[i+1][2]+2.0*parameters[i][2])/3.0);
+            parameters[i][3] = (parameters[i+1][2]-parameters[i][2])/(3.0*h[i]);
             parameters[i][0] = pts[i].y;
     }
 /*
