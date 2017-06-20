@@ -26,7 +26,7 @@ class pretreatment{
             int variance, mean;
         };
         struct splineCubic{
-            float a, b, c, d;
+            double a, b, c, d;
             int lowerBound, higherBound, hue;
         };
         struct extractedGraph{
@@ -34,7 +34,7 @@ class pretreatment{
             vector<vector<splineCubic> > splinesP, splinesC;
         };
         static extractedGraph colorSegmentation ( Mat * );
-        static vector<Vec4f> points2Splines(vector<Point>);
+        static vector<Vec4d> points2Splines(vector<Point>);
         static vector<int> axisScan(vector<float>, float threshHisto = 0.0, int histMargin=1);
 
 };

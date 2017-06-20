@@ -384,7 +384,7 @@ for(vector< vector<KeyPoint> >::const_iterator k=orderedKeyPoints.begin(); k!=or
             splinesBuffer.push_back(currentSpline);
         }
     }*/
-    vector<Vec4f> splinesParam = points2Splines(bufferPoints);
+    vector<Vec4d> splinesParam = points2Splines(bufferPoints);
     for(int j=0; j<bufferPoints.size(); ++j){
         splineCubic splineBuffer = {
             splinesParam[j][3],
@@ -406,7 +406,7 @@ for(vector< vector<KeyPoint> >::const_iterator k=orderedKeyPoints.begin(); k!=or
 }
 
 // Display the splines
-Mat dispSplines = bgCleaned.clone();
+Mat dispSplines;
 cvtColor(bgCleaned, dispSplines, CV_GRAY2BGR);
 for(vector< vector<splineCubic> >::const_iterator k=powers.begin(); k!=powers.end(); ++k){
     for(vector<splineCubic>::const_iterator o=k->begin(); o!=k->end(); ++o){
@@ -417,11 +417,12 @@ for(vector< vector<splineCubic> >::const_iterator k=powers.begin(); k!=powers.en
                 o->c*p+
                 o->d
             );
-            if(y<0 || y>maxY)
+            /*if(y<0 || y>maxY)
                 y=10;
+            */
             cout<<"spline pt "<<p<<" "<<y<<" "<<o->hue<<endl;
             //cout<<"spline param: a "<<o->a<<" b "<<o->b<<" c "<<o->c<<" d "<<o->d<<endl;
-            dispSplines.at<Scalar>(y,p) = Scalar(o->hue,200,200);
+            //dispSplines.at<Scalar>(y,p) = Scalar(o->hue,200,200);
         }
     }
 }
@@ -700,14 +701,85 @@ imshow("my splines",dispSplines);
     return graphOutput;
 }
 
-vector<Vec4f> pretreatment::points2Splines(vector<Point> pts){
+vector<Vec4d> pretreatment::points2Splines(vector<Point> pts){
     //vector<splineCubic> outputSplines(nbrSplines);
     int nbrSplines = pts.size()-1;
-    vector<Vec4f> parameters(nbrSplines+1), linearApprox(nbrSplines), cubicCorrection(nbrSplines);
+    vector<Vec4d> parameters(nbrSplines+1), linearApprox(nbrSplines), cubicCorrection(nbrSplines);
     splineCubic bufferSpline;
     vector<int> h(nbrSplines);
     vector<double> alpha(nbrSplines+1), mu(nbrSplines+1), z(nbrSplines+1), l(nbrSplines+1);
 
+    Mat A = Mat(nbrSplines+2,nbrSplines+2,CV_64F),
+        X,
+        B = Mat(nbrSplines+2,1,CV_64F);
+
+    A.at<double>(0,nbrSplines+1) = 1.0;
+    A.at<double>(nbrSplines+1,0) = 1.0;
+
+    for(int i=0; i<nbrSplines; ++i){
+        h[i] = pts[i+1].x - pts[i].x;
+    }
+
+    for(int i=1; i<nbrSplines+1; ++i){
+        B.at<double>(i,1) = ((3.0/h[i])*(pts[i+1].y - pts[i].y)) - ((3.0/h[i-1])*(pts[i].y - pts[i-1].y));
+        /*for(int j=1; j<nbrSplines+1; ++j){
+
+        }*/
+        A.at<double>(i,i-1) = h[i-1];
+        A.at<double>(i,i) = 2*(h[i-1]+h[i]);
+        A.at<double>(i,i+1) = h[i];
+    }
+
+    Mat coA = A.inv();
+    X = coA*B;
+
+    for(int u=0; u<X.rows; ++u)
+        cout<<X.at<double>(u,1)<<endl;
+
+    for(int i=X.rows-1; i>0; --i){
+        //cout<<"bruuuh "<<l[i]<<" "<<mu[i]<<" "<<z[i]<<" "<<h[i]<<" "<<alpha[i]<<endl;
+        parameters[i][2] = X.at<double>(i,1);
+        //cout<<X.at<double>(i,1)<<endl;
+        parameters[i][1] = ((pts[i+1].y-pts[i].y)/h[i]) - (h[i]*(parameters[i+1][2]+2.0*parameters[i][2])/3.0);
+        parameters[i][3] = (parameters[i+1][2]-parameters[i][2])/(3.0*h[i]);
+        parameters[i][0] = pts[i].y;
+        //cout<<"bruuuh "<<parameters[i][0]<<" "<<parameters[i][1]<<" "<<parameters[i][2]<<" "<<parameters[i][3]<<endl;
+    }
+/*
+    // CLAMPED VERSION with PF0=PFN=0
+    for(int i=0; i<nbrSplines; ++i){
+        h[i] = pts[i+1].x - pts[i].x;
+    }
+    alpha[0] = (3.0/h[0])*(pts[1].y - pts[0].y);
+    alpha[nbrSplines] = - (3.0/h[nbrSplines-1])*(pts[nbrSplines].y - pts[nbrSplines-1].y);
+    for(int i=1; i<nbrSplines; ++i){
+        alpha[i] = ((3.0/h[i])*(pts[i+1].y - pts[i].y)) - ((3.0/h[i-1])*(pts[i].y - pts[i-1].y));
+    }
+
+    mu[0] = 0.5;
+    l[0] = 2*h[0];
+    z[0] = alpha[0]/l[0];
+
+    for(int i=1; i<nbrSplines; ++i){
+        l[i] = (2.0*(pts[i+1].x - pts[i-1].x)) - (h[i-1]*mu[i-1]);
+        mu[i] = h[i]/l[i];
+        z[i] = (alpha[i] - (h[i-1]*z[i-1]))/l[i];
+    }
+
+    l[nbrSplines] = h[nbrSplines-1]*(2-mu[nbrSplines-1]);
+    z[nbrSplines] = (alpha[nbrSplines]-(h[nbrSplines-1]*z[nbrSplines-1]))/l[nbrSplines];
+    parameters[nbrSplines][2] = z[nbrSplines];
+
+    for(int i=nbrSplines; i>0; --i){
+        //cout<<"bruuuh "<<l[i]<<" "<<mu[i]<<" "<<z[i]<<" "<<h[i]<<" "<<alpha[i]<<endl;
+        parameters[i][2] = z[i]-(mu[i]*parameters[i+1][2]);
+        parameters[i][1] = ((pts[i+1].y-pts[i].y)/(float)h[i]) - (h[i]*(parameters[i+1][2]+2.0*parameters[i][2])/3.0);
+        parameters[i][3] = (parameters[i+1][2]-parameters[i][2])/(3.0*h[i]);
+        parameters[i][0] = pts[i].y;
+        //cout<<"bruuuh "<<parameters[i][0]<<" "<<parameters[i][1]<<" "<<parameters[i][2]<<" "<<parameters[i][3]<<endl;
+    }
+*/
+/*  //NATURAL VERSION
     for(int i=0; i<nbrSplines; ++i){
         h[i] = pts[i+1].x - pts[i].x;
     }
@@ -736,7 +808,7 @@ vector<Vec4f> pretreatment::points2Splines(vector<Point> pts){
         parameters[i][3] = (parameters[i+1][2]-parameters[i][2])/(3.0*h[i]);
         parameters[i][0] = pts[i].y;
         //cout<<"bruuuh "<<parameters[i][0]<<" "<<parameters[i][1]<<" "<<parameters[i][2]<<" "<<parameters[i][3]<<endl;
-    }
+    }*/
 /*
 
     for(int i=0; i<nbrSplines; ++i){
