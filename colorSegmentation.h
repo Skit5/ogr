@@ -26,7 +26,7 @@ class pretreatment{
             int variance, mean;
         };
         struct splineCubic{
-            double a, b, c, d;
+            Vec4d params;
             int lowerBound, higherBound, hue;
         };
         struct extractedGraph{

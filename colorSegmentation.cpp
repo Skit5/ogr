@@ -357,7 +357,7 @@ for(vector< vector<KeyPoint> >::const_iterator k=orderedKeyPoints.begin(); k!=or
             //cout<<maxKp.pt.x<<endl;
             //cout<<u+minBin<<endl;
             if(maxKp.pt.x > 0)
-                bufferPoints.push_back(Point(round(maxKp.pt.x),round(maxKp.pt.y)));
+                bufferPoints.push_back(Point(round(maxKp.pt.x),round(maxY - maxKp.pt.y)));
             u = l->pt.x;
             maxKp = KeyPoint();
         }
@@ -387,10 +387,7 @@ for(vector< vector<KeyPoint> >::const_iterator k=orderedKeyPoints.begin(); k!=or
     vector<Vec4d> splinesParam = points2Splines(bufferPoints);
     for(int j=0; j<bufferPoints.size(); ++j){
         splineCubic splineBuffer = {
-            splinesParam[j][3],
-            splinesParam[j][2],
-            splinesParam[j][1],
-            splinesParam[j][0],
+            splinesParam[j],
             bufferPoints[j].x,
             bufferPoints[j+1].x,
             hue
@@ -411,22 +408,23 @@ cvtColor(bgCleaned, dispSplines, CV_GRAY2BGR);
 for(vector< vector<splineCubic> >::const_iterator k=powers.begin(); k!=powers.end(); ++k){
     for(vector<splineCubic>::const_iterator o=k->begin(); o!=k->end(); ++o){
         for(int p=(o->lowerBound); p<(o->higherBound); ++p){
+            int h = p - o->lowerBound;
             int y = round(
-                o->a*pow(p,3)+
-                o->b*pow(p,2)+
-                o->c*p+
-                o->d
+                o->params[3]*pow(h,3)+
+                o->params[2]*pow(h,2)+
+                o->params[1]*h+
+                o->params[0]
             );
-            /*if(y<0 || y>maxY)
+            if(y<0 || y>maxY)
                 y=10;
-            */
+
             cout<<"spline pt "<<p<<" "<<y<<" "<<o->hue<<endl;
             //cout<<"spline param: a "<<o->a<<" b "<<o->b<<" c "<<o->c<<" d "<<o->d<<endl;
-            //dispSplines.at<Scalar>(y,p) = Scalar(o->hue,200,200);
+            dispSplines.at<Scalar>(maxY-y,p+minX) = Scalar(o->hue,200,200);
         }
     }
 }
-cvtColor(dispSplines, dispSplines, CV_HSV2BGR);
+//cvtColor(dispSplines, dispSplines, CV_HSV2BGR);
 imshow("my splines",dispSplines);
     /*for(int u=minX; u<maxX;++u){
         for(int v=minY; v<maxY;++v){
@@ -704,45 +702,56 @@ imshow("my splines",dispSplines);
 vector<Vec4d> pretreatment::points2Splines(vector<Point> pts){
     //vector<splineCubic> outputSplines(nbrSplines);
     int nbrSplines = pts.size()-1;
-    vector<Vec4d> parameters(nbrSplines+1), linearApprox(nbrSplines), cubicCorrection(nbrSplines);
+    vector<Vec4d> parameters(nbrSplines+1);//, linearApprox(nbrSplines), cubicCorrection(nbrSplines);
     splineCubic bufferSpline;
+    //vector<splineCubic> outputSplines
     vector<int> h(nbrSplines);
-    vector<double> alpha(nbrSplines+1), mu(nbrSplines+1), z(nbrSplines+1), l(nbrSplines+1);
+    //vector<double> alpha(nbrSplines+1), mu(nbrSplines+1), z(nbrSplines+1), l(nbrSplines+1);
 
-    Mat A = Mat(nbrSplines+2,nbrSplines+2,CV_64F),
+    Mat A = Mat(nbrSplines,nbrSplines,CV_64F),
         X,
-        B = Mat(nbrSplines+2,1,CV_64F);
+        B = Mat(nbrSplines,1,CV_64F);
 
-    A.at<double>(0,nbrSplines+1) = 1.0;
-    A.at<double>(nbrSplines+1,0) = 1.0;
+    //A.at<double>(0,nbrSplines) = 1.0;
+    //A.at<double>(nbrSplines,0) = 1.0;
 
     for(int i=0; i<nbrSplines; ++i){
         h[i] = pts[i+1].x - pts[i].x;
+        cout<<"h ["<<i<<"] = "<<h[i]<<endl;
     }
-
-    for(int i=1; i<nbrSplines+1; ++i){
-        B.at<double>(i,1) = ((3.0/h[i])*(pts[i+1].y - pts[i].y)) - ((3.0/h[i-1])*(pts[i].y - pts[i-1].y));
+    cout<<"splines :"<<nbrSplines<<endl;
+    for(int i=1; i<nbrSplines; ++i){
+        B.at<double>(i,0) = 3.0*((pts[i+1].y - pts[i].y)/h[i] - (pts[i].y - pts[i-1].y)/h[i-1]);
         /*for(int j=1; j<nbrSplines+1; ++j){
 
         }*/
-        A.at<double>(i,i-1) = h[i-1];
+        if(i>0)
+            A.at<double>(i,i-1) = h[i-1];
         A.at<double>(i,i) = 2*(h[i-1]+h[i]);
-        A.at<double>(i,i+1) = h[i];
+        if(i<nbrSplines)
+            A.at<double>(i,i+1) = h[i];
     }
 
+    A(Range(1,nbrSplines), Range(1,nbrSplines)).copyTo(A);
+    B(Range(1,nbrSplines), Range(0,1)).copyTo(B);
+
     Mat coA = A.inv();
+    cout<<"rows :"<<coA.rows<<"cols :"<<coA.cols<<endl;
+    cout<<"rows :"<<B.rows<<"cols :"<<B.cols<<endl;
+
     X = coA*B;
+    cout<<coA<<endl;
 
     for(int u=0; u<X.rows; ++u)
-        cout<<X.at<double>(u,1)<<endl;
+        cout<<X.at<double>(u,0)<<endl;
 
     for(int i=X.rows-1; i>0; --i){
         //cout<<"bruuuh "<<l[i]<<" "<<mu[i]<<" "<<z[i]<<" "<<h[i]<<" "<<alpha[i]<<endl;
-        parameters[i][2] = X.at<double>(i,1);
-        //cout<<X.at<double>(i,1)<<endl;
-        parameters[i][1] = ((pts[i+1].y-pts[i].y)/h[i]) - (h[i]*(parameters[i+1][2]+2.0*parameters[i][2])/3.0);
+        parameters[i][2] = X.at<double>(i,0);
+        //cout<<X.at<double>(i,0)<<endl;
         parameters[i][3] = (parameters[i+1][2]-parameters[i][2])/(3.0*h[i]);
         parameters[i][0] = pts[i].y;
+        parameters[i][1] = ((pts[i+1].y-pts[i].y)/h[i]) - (h[i]*parameters[i][2]+ parameters[i][3]*pow(h[i],2));
         //cout<<"bruuuh "<<parameters[i][0]<<" "<<parameters[i][1]<<" "<<parameters[i][2]<<" "<<parameters[i][3]<<endl;
     }
 /*
