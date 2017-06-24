@@ -343,7 +343,9 @@ for(vector<Mat>::const_iterator m=curveMasks.begin(); m!=curveMasks.end(); ++m){
 vector<vector<splineCubic> > torques(orderedKeyPoints.size()), powers(orderedKeyPoints.size());
 vector<splineCubic> splinesBuffer;
 vector<Point> bufferPoints;
-int maxBin = ceil((maxX-minX)*0.05), minBin = ceil((maxX-minX)*0.005);
+int maxBin = ceil((maxX-minX)*0.05);
+//int minBin = ceil((maxX-minX)*0.005);
+int minBin = 4; // weird value; better at 1,2 and 4; splines disappear at 5
 for(vector< vector<KeyPoint> >::const_iterator k=orderedKeyPoints.begin(); k!=orderedKeyPoints.end(); ++k){
     int firstKeyPoint = minX, lastKeyPoint=minX,
         maskId = k-orderedKeyPoints.begin(),
@@ -357,7 +359,7 @@ for(vector< vector<KeyPoint> >::const_iterator k=orderedKeyPoints.begin(); k!=or
             //cout<<maxKp.pt.x<<endl;
             //cout<<u+minBin<<endl;
             if(maxKp.pt.x > 0)
-                bufferPoints.push_back(Point(round(maxKp.pt.x),round(maxY - maxKp.pt.y)));
+                bufferPoints.push_back(Point(round(maxKp.pt.x),round(picHeight - maxKp.pt.y)));
             u = l->pt.x;
             maxKp = KeyPoint();
         }
@@ -403,10 +405,11 @@ for(vector< vector<KeyPoint> >::const_iterator k=orderedKeyPoints.begin(); k!=or
 }
 
 // Display the splines
-Mat dispSplines;
-cvtColor(bgCleaned, dispSplines, CV_GRAY2BGR);
+Mat dispSplines(bgCleaned.size(),CV_8UC1, Scalar(0,0,0));
+//cvtColor(bgCleaned, dispSplines, CV_GRAY2BGR,3);
 for(vector< vector<splineCubic> >::const_iterator k=powers.begin(); k!=powers.end(); ++k){
     for(vector<splineCubic>::const_iterator o=k->begin(); o!=k->end(); ++o){
+    cout<<"lb "<<o->lowerBound<<" hb "<<o->higherBound<<endl;
         for(int p=(o->lowerBound); p<(o->higherBound); ++p){
             int h = p - o->lowerBound;
             int y = round(
@@ -415,12 +418,15 @@ for(vector< vector<splineCubic> >::const_iterator k=powers.begin(); k!=powers.en
                 o->params[1]*h+
                 o->params[0]
             );
-            if(y<0 || y>maxY)
-                y=10;
 
-            cout<<"spline pt "<<p<<" "<<y<<" "<<o->hue<<endl;
+            //cout<<"spline pt "<<p<<" "<<y<<" "<<o->hue<<endl;
             //cout<<"spline param: a "<<o->a<<" b "<<o->b<<" c "<<o->c<<" d "<<o->d<<endl;
-            dispSplines.at<Scalar>(maxY-y,p+minX) = Scalar(o->hue,200,200);
+            //dispSplines.at<Scalar>(picHeight-y,p) = Scalar(o->hue,200,200);
+            //y = round((picHeight - y) - ((picHeight - y)%maxY));
+            y = picHeight - y;
+            if(y<picHeight && y>0)
+                dispSplines.at<uchar>(y,p) = 0xFF;
+                //dispSplines.at<Scalar>(y,p) = Scalar(0,0,255);
         }
     }
 }
@@ -740,10 +746,10 @@ vector<Vec4d> pretreatment::points2Splines(vector<Point> pts){
     cout<<"rows :"<<B.rows<<"cols :"<<B.cols<<endl;
 
     X = coA*B;
-    cout<<coA<<endl;
+   // cout<<coA<<endl;
 
-    for(int u=0; u<X.rows; ++u)
-        cout<<X.at<double>(u,0)<<endl;
+   // for(int u=0; u<X.rows; ++u)
+   //     cout<<X.at<double>(u,0)<<endl;
 
     for(int i=X.rows-1; i>0; --i){
         //cout<<"bruuuh "<<l[i]<<" "<<mu[i]<<" "<<z[i]<<" "<<h[i]<<" "<<alpha[i]<<endl;
