@@ -193,7 +193,8 @@ for(int i = 0; i < picWidth; i++)
     }
     //maskArea = cv2cvtColor(cvarrToMat(img), imgHsv, CV_BGR2HSV)
 
-    //imwrite("graph6-reduced.png", maskArea);
+    //imwrite("graph5-reduced.jpg", maskArea);
+    //imshow("graph0-reduced", maskArea);
 
     int lineSize = 1;
     Mat elementVer = getStructuringElement(MORPH_CROSS,Size(lineSize,(maxX-minX)/120));
@@ -203,6 +204,7 @@ for(int i = 0; i < picWidth; i++)
     morphologyEx(maskArea, maskArea, MORPH_ERODE, elementHor, Point(-1,-1));
     morphologyEx(maskArea, maskArea, MORPH_DILATE, elementHor, Point(-1,-1));
 
+    //imwrite("graph0-noaxises.jpg",maskArea);
 
 
 // WE GOT THE CURVES! (mais faut penser à améliorer ça)
@@ -301,7 +303,11 @@ for(int a=0; a<curveMasks.size(); ++a)
     kpCurveMasks.push_back(curveMasks[a].clone());
 
 for(vector<Mat>::const_iterator m=curveMasks.begin(); m!=curveMasks.end(); ++m){
+
     int ku = m-curveMasks.begin();
+    string labelh("layer-hue-"+to_string(colorCurves[ku].mean));
+    //imwrite(labelh+"-graph4.jpg",kpCurveMasks[ku]);
+
     //cout<<colorCurves[ku].mean<<endl;
     vector<KeyPoint> kp;
     FAST(curveMasks[ku],kp,0,true);
@@ -327,8 +333,8 @@ for(vector<Mat>::const_iterator m=curveMasks.begin(); m!=curveMasks.end(); ++m){
     orderedKeyPoints[ku] = kp;
 
 
-    string labelh("layer hue %d",(int)colorCurves[ku].mean);
     imshow(labelh,kpCurveMasks[ku]);
+    //imwrite(labelh+"-kp-graph6.png",kpCurveMasks[ku]);
 }
 
 /**
@@ -345,7 +351,7 @@ vector<splineCubic> splinesBuffer;
 vector<Point> bufferPoints;
 int maxBin = ceil((maxX-minX)*0.05);
 //int minBin = ceil((maxX-minX)*0.005);
-int minBin = 4; // weird value; better at 1,2 and 4; splines disappear at 5
+int minBin = 4; // weird value; better at 1,2 and 4; splines disappear at 5-6
 for(vector< vector<KeyPoint> >::const_iterator k=orderedKeyPoints.begin(); k!=orderedKeyPoints.end(); ++k){
     int firstKeyPoint = minX, lastKeyPoint=minX,
         maskId = k-orderedKeyPoints.begin(),
@@ -365,6 +371,7 @@ for(vector< vector<KeyPoint> >::const_iterator k=orderedKeyPoints.begin(); k!=or
         }
         // test the new max of the bin
         if(round(l->pt.x) >= u && l->size > maxKp.size ){
+            //l->pt.x = round(l->pt.x);
             maxKp = *l;
         }
     }
@@ -409,7 +416,7 @@ Mat dispSplines(bgCleaned.size(),CV_8UC1, Scalar(0,0,0));
 //cvtColor(bgCleaned, dispSplines, CV_GRAY2BGR,3);
 for(vector< vector<splineCubic> >::const_iterator k=powers.begin(); k!=powers.end(); ++k){
     for(vector<splineCubic>::const_iterator o=k->begin(); o!=k->end(); ++o){
-    cout<<"lb "<<o->lowerBound<<" hb "<<o->higherBound<<endl;
+    //cout<<"lb "<<o->lowerBound<<" hb "<<o->higherBound<<endl;
         for(int p=(o->lowerBound); p<(o->higherBound); ++p){
             int h = p - o->lowerBound;
             int y = round(
@@ -432,6 +439,7 @@ for(vector< vector<splineCubic> >::const_iterator k=powers.begin(); k!=powers.en
 }
 //cvtColor(dispSplines, dispSplines, CV_HSV2BGR);
 imshow("my splines",dispSplines);
+//imwrite("spline-graph6.png",dispSplines);
     /*for(int u=minX; u<maxX;++u){
         for(int v=minY; v<maxY;++v){
 
@@ -676,7 +684,7 @@ imshow("my splines",dispSplines);
     }*/
     imshow("Cleaned background", bgCleaned);
     imshow("Mask background", bgMask);
-    imshow("histogramGrayLevels", histoDisplay);
+    //imshow("histogramGrayLevels", histoDisplay);
 
     Mat enlargedHistoX, enlargedHistoY;
     //resize(fftX[0],fftX[0],Size(fftX[0].cols,30));
@@ -689,9 +697,9 @@ imshow("my splines",dispSplines);
 
     //imshow("Periodic grid", periodImg);
 
-    //imwrite("graph4-hough.jpg", displayer);
-    //imwrite("graph4-houghX.jpg", enlargedHistoX);
-    //imwrite("graph4-houghY.jpg", enlargedHistoY);
+    //imwrite("graph6-hough.png", displayer);
+    //imwrite("graph6-houghX.png", enlargedHistoX);
+    //imwrite("graph6-houghY.png", enlargedHistoY);
     imshow("Mask workable zone", maskArea);
 
     extractedGraph graphOutput;
@@ -723,7 +731,7 @@ vector<Vec4d> pretreatment::points2Splines(vector<Point> pts){
 
     for(int i=0; i<nbrSplines; ++i){
         h[i] = pts[i+1].x - pts[i].x;
-        cout<<"h ["<<i<<"] = "<<h[i]<<endl;
+        //cout<<"h ["<<i<<"] = "<<h[i]<<endl;
     }
     cout<<"splines :"<<nbrSplines<<endl;
     for(int i=1; i<nbrSplines; ++i){
