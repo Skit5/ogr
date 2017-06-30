@@ -1,8 +1,8 @@
 # depslib dependency file v1.0
-1498765581 source:/home/youness/Documents/opencv scripts/ogr-server/main.cpp
+1498835697 source:/home/youness/Documents/opencv scripts/ogr-server/main.cpp
 	"ogr-lib.h"
 
-1498765835 /home/youness/Documents/opencv scripts/ogr-server/ogr-lib.h
+1498842816 /home/youness/Documents/opencv scripts/ogr-server/ogr-lib.h
 	<opencv2/opencv.hpp>
 	<opencv2/core/core.hpp>
 	<opencv2/highgui/highgui.hpp>
@@ -11,6 +11,7 @@
 	<vector>
 	<iterator>
 	<string>
+	<initializer_list>
 
 1496423052 /usr/local/include/opencv2/opencv.hpp
 	"opencv2/opencv_modules.hpp"
@@ -766,6 +767,9 @@
 1496423052 /usr/local/include/opencv2/imgproc/imgproc.hpp
 	"opencv2/imgproc.hpp"
 
-1498765818 source:/home/youness/Documents/opencv scripts/ogr-server/ogr.cpp
+1498839830 source:/home/youness/Documents/opencv scripts/ogr-server/ogr.cpp
+	"ogr-lib.h"
+
+1498840060 source:/home/youness/Documents/opencv scripts/ogr-server/optimizer.cpp
 	"ogr-lib.h"
 

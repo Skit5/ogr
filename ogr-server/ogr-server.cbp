@@ -46,6 +46,8 @@
 		<Unit filename="main.cpp" />
 		<Unit filename="ogr-lib.h" />
 		<Unit filename="ogr.cpp" />
+		<Unit filename="optimizer.cpp" />
+		<Unit filename="pretreatment.cpp" />
 		<Extensions>
 			<code_completion />
 			<debugger />

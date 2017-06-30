@@ -1,4 +1,3 @@
-//#define _GLIBCXX_USE_CXX11_ABI 0
 #include "ogr-lib.h"
 
 int main ( int argc, char **argv )

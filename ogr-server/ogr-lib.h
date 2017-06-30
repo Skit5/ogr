@@ -9,6 +9,7 @@
 #include <vector>
 #include <iterator>
 #include <string>
+//#include <initializer_list>
 
 namespace ogr{
     using namespace std;
@@ -35,6 +36,10 @@ namespace ogr{
     struct gaussianCurve{
         int sigma, mean;
     };
+    struct param2optimize{
+        int* paramAddress;
+        string name;
+    };
 
     /** EXTRACT
     *       fonction principale de l'OGR
@@ -49,6 +54,29 @@ namespace ogr{
     *       return: (vector<Vec4d>) coefficients (a,b,c,d) de chaque polynome
     */
     vector<Vec4d> points2Splines(vector<Point>);
+
+    /** GETEDGES
+    *       extrait le masque des arêtes de l'image
+    *       params: (Mat) image en niveaux de gris à analyser
+    *       return: (Mat) image binarisée des bords des éléments de l'image
+    */
+    Mat getEdges(Mat);
+
+    /** GETGRAPHAREA
+    *       extrait le masque de zone
+    *       params: (Mat) masque des arêtes
+    *       return: (Rect) rectangle de zone
+    */
+    Rect getGraphArea(Mat);
+
+
+    /** OPTIMIZER
+    *       permet d'instancier une fenêtre et de manipuler les paramètres d'une fonction
+    *       params: une liste de pointeurs sur les paramètres manipulables et la fonction de rendu
+    *       return: permet la manipulation des paramètres
+    */
+    template<typename Lambda>
+    void optimizer(param2optimize[], Lambda);
 }
 
 #endif // OGR_LIB_INCLUDED
