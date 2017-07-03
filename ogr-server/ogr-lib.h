@@ -9,7 +9,7 @@
 #include <vector>
 #include <iterator>
 #include <string>
-//#include <initializer_list>
+#include <functional>
 
 namespace ogr{
     using namespace std;
@@ -39,6 +39,7 @@ namespace ogr{
     struct param2optimize{
         int* paramAddress;
         string name;
+        int paramMax;
     };
 
     /** EXTRACT
@@ -75,8 +76,7 @@ namespace ogr{
     *       params: une liste de pointeurs sur les paramètres manipulables et la fonction de rendu
     *       return: permet la manipulation des paramètres
     */
-    template<typename Lambda>
-    void optimizer(param2optimize[], Lambda);
+    void optimizer(vector<param2optimize>, const function<Mat()> &update);
 }
 
 #endif // OGR_LIB_INCLUDED

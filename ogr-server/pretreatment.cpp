@@ -4,14 +4,14 @@ namespace ogr{
 
     Mat getEdges(Mat greyPicture){
         int lowThreshold=0, highThreshold=100;
-        param2optimize params[] = {
-            {&lowThreshold,"Low Threshold"},
-            {&highThreshold,"High Threshold"}
+        vector<param2optimize> params{
+            {&lowThreshold,"Low Threshold",255},
+            {&highThreshold,"High Threshold",255}
         };
+        Mat detectedEdges;
 
-        optimizer(params, [](Mat greyPicture, param2optimize params[]){
-            Mat detectedEdges;
-            Canny(greyPicture, detectedEdges, *params[0].paramAddress, *params[1].paramAddress, 3);
+        optimizer(params, [=, &detectedEdges]()->Mat{
+            Canny(greyPicture, detectedEdges, *(params[0].paramAddress), *(params[1].paramAddress), 3);
             return detectedEdges;
         });
     }
