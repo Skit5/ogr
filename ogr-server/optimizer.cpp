@@ -5,7 +5,15 @@ namespace ogr{
     void optimizer(vector<param2optimize> params, const function<Mat()> &update){
 
         /****************************
-        //  INITIALIZATION
+        //  FONCTIONNEMENT NORMAL
+        ****************************/
+        if(!DEBUG){
+            update();
+            return;
+        }
+
+        /****************************
+        //  INITIALISATION DU DEBUG
         ****************************/
         string winName = "Fenêtre d'optimisation";
 
@@ -22,7 +30,9 @@ namespace ogr{
         namedWindow(winName,1);
         /// Ajout d'une trackbar pour chaque paramètre
         for(int p=0; p<params.size(); ++p){
-            createTrackbar(params[p].name, winName,params[p].paramAddress,params[p].paramMax, trackbarCb, (void*)&refresh);
+            createTrackbar(params[p].name, winName,
+                params[p].paramAddress,params[p].paramMax,
+                trackbarCb, (void*)&refresh);
         }
         /// Affichage initial
         refresh(0);
@@ -37,9 +47,10 @@ namespace ogr{
             /// extrait les 2B du code ascii du character
             keyPressed = keyPressed&0xFFFF;
             /// et teste ESC, ENTER, q  ou la fermeture de la fenêtre pour la sortie
-            if(keyPressed == 27 || keyPressed == 10 || keyPressed == 113 || (getWindowProperty("Fenêtre d'optimisation",0)>=0))
+            if(keyPressed == 27 || keyPressed == 10
+                || keyPressed == 113 || (getWindowProperty(winName,0)>=0))
                 destroyWindow(winName);
         }
-
+        return;
     }
 }

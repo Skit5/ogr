@@ -11,9 +11,11 @@ namespace ogr{
         Mat detectedEdges;
 
         optimizer(params, [=, &detectedEdges]()->Mat{
+            blur(greyPicture,detectedEdges,Size(3,3));
             Canny(greyPicture, detectedEdges, *(params[0].paramAddress), *(params[1].paramAddress), 3);
             return detectedEdges;
         });
+        return detectedEdges;
     }
 
 

@@ -8,7 +8,8 @@ namespace ogr{
         ****************************/
         extractedGraph result;
         Mat bgrPicture, edgesPicture,
-            hsvPicture, hsvSplitted[3];
+            hsvPicture, hsvSplitted[3],
+            areaMask;
         Rect graphArea;
 
         /****************************
@@ -33,7 +34,17 @@ namespace ogr{
         /// Définition de la zone de travail
         graphArea = getGraphArea(edgesPicture);
 
-        /// Création du masque de fond
+        /// Création du masque de zone sans la couleur de fond
+        areaMask = extractWorkZone(
+                        hsvSplitted[2],
+                        graphArea,
+                        extractBackground(hsvSplitted[2], graphArea));
+
+        /// Nettoyage du quadrillage
+
+        /// Détection des couleurs clés
+
+        /// Création des masques de couleurs
 
         /****************************
         //  TRAITEMENT
