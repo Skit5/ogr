@@ -164,8 +164,34 @@ namespace ogr{
                 tl = Point(borderPos[0],borderPos[3]);
                 br = Point(borderPos[2],borderPos[1]);
             }else if(isTop&&isBot){
-
+                double left, right;
+                if(isLeft){
+                    left=borderPos[0];
+                    right=left+width;
+                }else if(isRight){
+                    right=borderPos[2];
+                    left=right-width;
+                }else{
+                    left = min(borderLoc[0],borderLoc[2]);
+                    right = left+width;
+                }
+                tl = Point(left,borderPos[3]);
+                br = Point(right,borderPos[1]);
             }else if(isLeft&&isRight){
+                double top, bot;
+                if(isTop){
+                    top=borderPos[3];
+                    bot=top-height;
+                }else if(isBot){
+                    bot=borderPos[1];
+                    top=bot+height;
+                }else{
+                    bot = min(borderLoc[1],borderLoc[3]);
+                    top = bot+height;
+                }
+                tl = Point(borderPos[0],top);
+                br = Point(borderPos[2],bot);
+            }else if(width>0 && height>0){
 
             }else{
                 cout<<"Erreur: pas assez de lignes détectées pour définir la zone du graphe"
