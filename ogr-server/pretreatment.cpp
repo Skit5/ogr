@@ -2,111 +2,294 @@
 
 namespace ogr{
 
+    /****************************
+    //  DETECTION DES ARÊTES
+    ****************************/
+
     Mat getEdges(Mat greyPicture){
-        int lowThreshold=0, highThreshold=100;
+        int lowThreshold=62, highThreshold=137;
         vector<param2optimize> params{
             {&lowThreshold,"Low Threshold",255},
             {&highThreshold,"High Threshold",255}
         };
         Mat detectedEdges;
 
+        if(DEBUG){
+            double histo[256] = {};
+            getHistogram(greyPicture, histo);
+
+            double maxVal=0, valMax=0, medVal=-1, valMed=0, sum=0,
+            picSize = greyPicture.cols*greyPicture.rows, lowVal=-1, highVal=-1;
+            for(int k=0; k<256; ++k){
+                if(histo[k]>maxVal){
+                    maxVal = histo[k];
+                    valMax = k;
+                }
+                sum += histo[k];
+
+                if(sum>=0.2*picSize && lowVal==-1)
+                    lowVal = k;
+                if(sum>=picSize/2 && medVal==-1){
+                    medVal = sum;
+                    valMed = k;
+                }
+                if(sum>=0.8*picSize && highVal==-1)
+                    highVal = k;
+            }
+            cout<<"max["<<valMax<<"] "<<maxVal<<endl;
+            cout<<"median["<<valMed<<"] "<<medVal<<endl;
+            cout<<"quintile(0)["<<lowVal<<"] quintile(4)["<<highVal<<"]"<<endl;
+
+            gaussianCurve histoDistrib = histo2gaussian(histo);
+            cout<<"Distrib histo : "<<histoDistrib.mean<<" +/- "<<histoDistrib.sigma<<endl;
+        }
+
         optimizer(params, [=, &detectedEdges]()->Mat{
-            blur(greyPicture,detectedEdges,Size(3,3));
             Canny(greyPicture, detectedEdges, *(params[0].paramAddress), *(params[1].paramAddress), 3);
             return detectedEdges;
         });
         return detectedEdges;
     }
 
+    void getHistogram(Mat pic, double (&histo)[256], Mat mask){
+        bool masked = false;
+        /// S'il y a présence d'un masque correct
+        if(mask.rows == pic.rows && mask.cols == pic.cols)
+            masked = true;
 
-    Rect getGraphArea(Mat edgedPicture){
-        int picWidth = edgedPicture.cols, picHeight = edgedPicture.rows, histoMargin = 2,
-            xCounter = 0, yCounter = 0, xSizer = 0, ySizer = 0,
-            minX = round(picHeight/2), minY=round(picWidth/2), maxX=minX, maxY=minY;
-        vector<Vec4i> lines;
-/*
-        HoughLinesP(edgedPicture, lines, 1, CV_PI/180, 50, 50, 5 );
-        for( size_t i = 0; i < lines.size(); i++ ){
-            Vec4i l = lines[i];
-            float lineLength = sqrt( pow(l[2]-l[0], 2) + pow(l[3]-l[1], 2));
-
-            if((abs(l[0]-l[2])<= histoMargin)&&(lineLength>picHeight/2.2)){
-                //histoX[(int)floor(l[0]/histoMargin)] += lineLength/(picHeight*histoMargin);
-                line( displayer, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 3, CV_AA);
-                ++xCounter;
-                int xloc = round((l[0]+l[2])/2);
-                if( xloc < minX ){
-                    minX = xloc;
-                    xSizer = lineLength;
-                }else if (xloc > maxX)
-                    maxX = xloc;
-            }else if((abs(l[1]-l[3])<= histoMargin )&&(lineLength>picWidth/2.2)){
-                //histoY[(int)floor(l[1]/histoMargin)] += lineLength/(picWidth*histoMargin);
-                line( displayer, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 3, CV_AA);
-                ++yCounter;
-                int yloc = round((l[1]+l[3])/2);
-                if( yloc < minY )
-                    minY = yloc;
-                else if (yloc > maxY){
-                    maxY = yloc;
-                    ySizer = lineLength;
-                }
+        for(int i=0; i<pic.rows; ++i){
+            for(int j=0; j<pic.cols; ++j){
+                int val = -1;
+                if(!masked)
+                    val = (int)pic.at<uchar>(i,j);
+                else if((int)mask.at<uchar>(i,j)>0)
+                    val = (int)pic.at<uchar>(i,j);
+                /// Incrémentation s'il n'y a pas de masque
+                /// ou pas de valeur nulle sur le masque
+                if(val>=0)
+                    ++histo[val];
             }
         }
+    }
 
+    gaussianCurve histo2gaussian(double histogram[]){
+        gaussianCurve currentCurve = {0,0};
+        vector<gaussianCurve> colorCurves;
+        double sum = 0, weightedSum = 0, varianceWeightedSum = 0;
+
+        for(int l=0; l<256; ++l){
+            sum += histogram[l];
+            weightedSum += histogram[l]*l;
+        }
+        currentCurve.mean = round(weightedSum/sum);
+        for(int k=0; k<256; ++k)
+            varianceWeightedSum += pow(histogram[k]*(k-currentCurve.mean),2);
+        currentCurve.sigma = round(sqrt(varianceWeightedSum)/sum);
+
+        return currentCurve;
+    }
+
+    /****************************
+    //  DETECTION DE LA ZONE
+    ****************************/
+
+    Rect getGraphArea(Mat edgedPicture){
+
+        vector<Vec4i> lines;
+        double centerX = edgedPicture.cols/2, centerY = edgedPicture.rows/2,
+            minLineLength=50, maxLineGap=5;
+        Rect graphZone;
+        int thresh=50, alignementErr = 2;
+        vector<param2optimize> params{
+            {&thresh,"Threshold",255},
+            {&minLineLength,"MinLineLength",255},
+            {&maxLineGap,"MaxLineGap",255},
+            {&alignementErr,"AlignmentError",255}
+        };
+
+        optimizer(params, [=, &lines, &graphZone]()->Mat{
+            Mat detectedLines = zeros(edgedPicture.rows, edgedPicture.cols, CV_8UC3);
+            Vec4d borderPos={centerX,centerY,centerX,centerY},
+                borderLength={0,0,0,0}, borderLoc={0,0,0,0};
+
+            HoughLinesP(edgedPicture, lines, 1, CV_PI/180, thresh, minLineLength, maxLineGap);
+            //Canny(greyPicture, detectedEdges, *(params[0].paramAddress), *(params[1].paramAddress), 3);
+
+            /// Séparer les horizontales, les verticales et les obliques
+            /// Puis chercher les bords et leur longueur
+            vector<int> labels;
+            for( size_t i = 0; i < lines.size(); i++ ){
+                Vec4i l = lines[i];
+                int label = 0;
+                double lineLength = sqrt( pow(l[2]-l[0], 2) + pow(l[3]-l[1], 2));
+
+                if(abs(l[0]-l[2])<= alignementErr){
+                    label = 2; /// vertical
+                    if(l[1]<borderPos[0]){ /// bord gauche
+                        borderPos[0] = l[1];
+                        borderLoc[0] = l[0];
+                        borderLength[0] = lineLength;
+                    }else if(l[1]>borderPos[2]){ /// bord droit
+                        borderPos[2] = l[1];
+                        borderLoc[2] = l[0];
+                        borderLength[2] = lineLength;
+                    }
+                }
+                else if(abs(l[1]-l[3])<= alignementErr){
+                    label = 1; /// horizontal
+                    if(l[0]<borderPos[1]){ /// bord bas
+                        borderPos[1] = l[0];
+                        borderLoc[1] = l[1];
+                        borderLength[1] = lineLength;
+                    }else if(l[0]>borderPos[3]){ /// bord haut
+                        borderPos[3] = l[0];
+                        borderLoc[3] = l[1];
+                        borderLength[3] = lineLength;
+                    }
+                }
+                labels.push_back(label);
+            }
+
+            /// Résolution de la zone du graphe
+            /// Stratégie adaptée aux infos extraites
+            bool isTop=(borderPos[3]>centerY),
+                isBot=(borderPos[1]<centerY),
+                isRight=(borderPos[2]<centerX),
+                isLeft=(borderPos[0]<centerX);
+            double width = max(borderLength[1],borderLength[3]),
+                height = max(borderLength[0],borderLength[2]);
+            Point tl,br;
+
+            if(isTop&&isBot&&isRight&&isLeft){
+                tl = Point(borderPos[0],borderPos[3]);
+                br = Point(borderPos[2],borderPos[1]);
+            }else if(isTop&&isBot){
+
+            }else if(isLeft&&isRight){
+
+            }else{
+                cout<<"Erreur: pas assez de lignes détectées pour définir la zone du graphe"
+            }
+
+            graphZone = Rect(tl,br);
+
+        }
+            if(width <= 0){ /// pas de ligne sur la largeur trouvée
+                if((borderPos[0]<edgedPicture.cols/2) && (borderPos[2]>edgedPicture.cols/2))
+                    /// On utilise la différence entre les
+                    width = abs(borderPos[0]-borderPos[2]);
+            }
+
+
+            borderPos={edgedPicture.cols/2,edgedPicture.cols/2,edgedPicture.cols/2,edgedPicture.cols/2
+            if(borderPos[2] <= edgedPicture.cols/2){
+                if(borderPos[1] < edgedPicture.rows/2)
+
+            }
+            ={edgedPicture.cols/2,edgedPicture.cols/2,edgedPicture.cols/2,edgedPicture.cols/2)
+
+
+            if((maxX <= round(picHeight/2))||(xCounter<2))
+            maxX = minX + ySizer;
+
+            if((minY >= round(picWidth/2))||(yCounter<2))
+                minY = abs(maxY - xSizer);
+
+            /// Réaliser le masque
+            for( size_t i = 0; i < lines.size(); i++ ){
+                Vec4i l = lines[i];
+                int label = 0;
+
+                if(abs(l[0]-l[2])<= alignementErr)
+                    label = 2; /// vertical
+                else if(abs(l[1]-l[3])<= alignementErr)
+                    label = 1; /// horizontal
+                labels.push_back(label);
+            }
+
+
+
+            for( size_t i = 0; i < lines.size(); i++ ){
+                Vec4i l = lines[i];
+                float lineLength = sqrt( pow(l[2]-l[0], 2) + pow(l[3]-l[1], 2));
+                Scalar color(150,150,150);
+
+                if(abs(l[0]-l[2])<= histoMargin)
+                    color = Scalar(255,0,0);
+                else if(abs(l[1]-l[3])<= histoMargin)
+                    color = Scalar(0,255,0);
+                    line( displayer, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 3, CV_AA);
+                    ++xCounter;
+                    int xloc = round((l[0]+l[2])/2);
+                    if( xloc < minX ){
+                        minX = xloc;
+                        xSizer = lineLength;
+                    }else if (xloc > maxX)
+                        maxX = xloc;
+                }else if((abs(l[1]-l[3])<= histoMargin )&&(lineLength>picWidth/2.2)){
+                    //histoY[(int)floor(l[1]/histoMargin)] += lineLength/(picWidth*histoMargin);
+                    line( displayer, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 3, CV_AA);
+                    ++yCounter;
+                    int yloc = round((l[1]+l[3])/2);
+                    if( yloc < minY )
+                        minY = yloc;
+                    else if (yloc > maxY){
+                        maxY = yloc;
+                        ySizer = lineLength;
+                    }
+                }
+            }
+
+            return detectedLines;
+        });
+/*
+
+            for( size_t i = 0; i < lines.size(); i++ ){
+                Vec4i l = lines[i];
+                float lineLength = sqrt( pow(l[2]-l[0], 2) + pow(l[3]-l[1], 2));
+
+                if((abs(l[0]-l[2])<= histoMargin)&&(lineLength>picHeight/2.2)){
+                    //histoX[(int)floor(l[0]/histoMargin)] += lineLength/(picHeight*histoMargin);
+                    line( displayer, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 3, CV_AA);
+                    ++xCounter;
+                    int xloc = round((l[0]+l[2])/2);
+                    if( xloc < minX ){
+                        minX = xloc;
+                        xSizer = lineLength;
+                    }else if (xloc > maxX)
+                        maxX = xloc;
+                }else if((abs(l[1]-l[3])<= histoMargin )&&(lineLength>picWidth/2.2)){
+                    //histoY[(int)floor(l[1]/histoMargin)] += lineLength/(picWidth*histoMargin);
+                    line( displayer, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 3, CV_AA);
+                    ++yCounter;
+                    int yloc = round((l[1]+l[3])/2);
+                    if( yloc < minY )
+                        minY = yloc;
+                    else if (yloc > maxY){
+                        maxY = yloc;
+                        ySizer = lineLength;
+                    }
+                }
+            }
         if((maxX <= round(picHeight/2))||(xCounter<2))
             maxX = minX + ySizer;
 
         if((minY >= round(picWidth/2))||(yCounter<2))
             minY = abs(maxY - xSizer);
 */
-        return Rect(maxX,minY,minX,maxY);
+        return graphZone;
     }
 
+    vector<Mat> getColorMasks(Mat hsvSplitted[], Mat edgedPicture, Rect workZone){
+        vector<Mat> colorMasks;
+        gaussianCurve backgroundColor, gridcolor;
 
-    vector<Vec4d> points2Splines(vector<Point> pts){
-        int nbrSplines = pts.size()-1;
-        vector<Vec4d> parameters(nbrSplines+1);
-        vector<int> h(nbrSplines);
+        return colorMasks;
+    }
 
-        Mat A = Mat(nbrSplines,nbrSplines,CV_64F),
-            X,
-            B = Mat(nbrSplines,1,CV_64F);
+    gaussianCurve getBackgroundColor(Mat greyPicture, Rect workZone){
+        gaussianCurve bgColor;
 
-        ///  Calcul du delta-X entre les points
-        for(int i=0; i<nbrSplines; ++i){
-            h[i] = pts[i+1].x - pts[i].x;
-        }
-
-        ///  On calcule le vecteur et la matrice tridiagonale
-        for(int i=1; i<nbrSplines; ++i){
-            B.at<double>(i,0) = 3.0*((pts[i+1].y - pts[i].y)/h[i] - (pts[i].y - pts[i-1].y)/h[i-1]);
-            if(i>0)
-                A.at<double>(i,i-1) = h[i-1];
-            A.at<double>(i,i) = 2*(h[i-1]+h[i]);
-            if(i<nbrSplines)
-                A.at<double>(i,i+1) = h[i];
-        }
-
-        ///  Suppression du premier élément (pas de spline)
-        A(Range(1,nbrSplines), Range(1,nbrSplines)).copyTo(A);
-        B(Range(1,nbrSplines), Range(0,1)).copyTo(B);
-
-        ///  Résolution de b_n matriciellement
-        Mat coA = A.inv();
-        X = coA*B;
-
-        /**  Résolution des paramètres pour chaque spline
-        *   a_n et c_n sont résolus
-        *   b_n est résolu et d_n est imposé par l'interpolation
-        */
-        for(int i=X.rows-1; i>0; --i){
-            parameters[i][2] = X.at<double>(i,0);
-            parameters[i][3] = (parameters[i+1][2]-parameters[i][2])/(3.0*h[i]);
-            parameters[i][0] = pts[i].y;
-            parameters[i][1] = ((pts[i+1].y-pts[i].y)/h[i]) - (h[i]*parameters[i][2]+ parameters[i][3]*pow(h[i],2));
-        }
-
-        return parameters;
+        return bgColor;
     }
 }

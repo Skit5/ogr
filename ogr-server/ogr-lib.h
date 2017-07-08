@@ -70,6 +70,30 @@ namespace ogr{
     */
     Rect getGraphArea(Mat);
 
+    /** GETCOLORMASKS
+    *       extrait les masques des différentes couleurs de courbes
+    *       params: (Mat) image HSV
+    *               (Mat) masque des arêtes
+    *               (Rect) zone de travail
+    *       return: (vector<Mat>) masques des couleurs extraites
+    */
+    vector<Mat> getColorMasks(Mat[], Mat, Rect);
+
+    /** HISTO2GAUSSIAN
+    *       convertit un histogramme en distribution normale
+    *       params: (int[]) histogramme 256
+    *       return: (gaussianCurve) gaussienne de l'histogramme
+    */
+    gaussianCurve histo2gaussian(double[]);
+
+    /** GETHISTOGRAM
+    *       obtient l'histogramme d'une image
+    *       params: (Mat) image 8bits:1chan
+    *               (double[]) vecteur des valeurs de l'histogramme
+    *               (Mat) masque optionnel de l'image
+    *       return: (void)
+    */
+    void getHistogram(Mat, double (&)[256], Mat mask=Mat());
 
     /** OPTIMIZER
     *       permet d'instancier une fenêtre et de manipuler les paramètres d'une fonction

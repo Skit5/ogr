@@ -51,6 +51,7 @@
 		<Unit filename="ogr.cpp" />
 		<Unit filename="optimizer.cpp" />
 		<Unit filename="pretreatment.cpp" />
+		<Unit filename="treatment.cpp" />
 		<Extensions>
 			<code_completion />
 			<debugger />
