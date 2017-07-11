@@ -7,7 +7,7 @@ namespace ogr{
     ****************************/
 
     Mat getEdges(Mat greyPicture){
-        int lowThreshold=62, highThreshold=137;
+        int lowThreshold=62, highThreshold=137; /// Valeurs optimisées
         vector<param2optimize> params{
             {&lowThreshold,"Low Threshold",255},
             {&highThreshold,"High Threshold",255}
@@ -181,57 +181,40 @@ namespace ogr{
                 if(!isTop)
                     borderPos[3] = borderPos[1] + height;
             }else{
-                cout<<"Erreur: pas assez de lignes détectées pour définir la zone du graphe"
+                cout<<"Erreur: pas assez de lignes détectées pour définir la zone du graphe"<<endl;
+                return NULL;
             }
 
             tl = Point(borderPos[0],borderPos[3]);
             br = Point(borderPos[2],borderPos[1]);
             graphZone = Rect(tl,br);
 
-            return detectedLines;
-        });
-        /*
-            if(isTop&&isBot&&isRight&&isLeft){
-                tl = Point(borderPos[0],borderPos[3]);
-                br = Point(borderPos[2],borderPos[1]);
-            }else if(isTop&&isBot){
-                double left, right;
-                if(isLeft){
-                    left=borderPos[0];
-                    right=left+width;
-                }else if(isRight){
-                    right=borderPos[2];
-                    left=right-width;
-                }else{
-                    left = min(borderLoc[0],borderLoc[2]);
-                    right = left+width;
-                }
-                tl = Point(left,borderPos[3]);
-                br = Point(right,borderPos[1]);
-            }else if(isLeft&&isRight){
-                double top, bot;
-                if(isTop){
-                    top=borderPos[3];
-                    bot=top-height;
-                }else if(isBot){
-                    bot=borderPos[1];
-                    top=bot+height;
-                }else{
-                    bot = min(borderLoc[1],borderLoc[3]);
-                    top = bot+height;
-                }
-                tl = Point(borderPos[0],top);
-                br = Point(borderPos[2],bot);
-            }else if(width>0 && height>0){
 
-            }else{
-                cout<<"Erreur: pas assez de lignes détectées pour définir la zone du graphe"
+            /// En mode debug, on va traiter l'affichage des lignes
+            /// et du contour pour ajuster les paramètres à l'oeil
+            if(DEBUG){
+                rectangle(detectedLines,graphZone, Scalar(0,0,255));
+                for( size_t i = 0; i < lines.size(); i++ ){
+                    Vec4i l = lines[i];
+                    Scalar color;
+                    int label = labels[i];
+
+                    if(label == 2){ /// verticale
+                        color = Scalar(255,0,0);
+                    }else if(label==1){ /// horizontale
+                        color = Scalar(0,255,0);
+                    }else{ /// oblique
+                        color = Scalar(150,150,150);
+                    }
+                    line( detectedLines, Point(l[0], l[1]), Point(l[2], l[3]), color, 1, CV_AA);
+
+                }
+
             }
 
-            graphZone = Rect(tl,br);
+            return detectedLines;
+        });
 
-        }
-*/
 /*
             if(width <= 0){ /// pas de ligne sur la largeur trouvée
                 if((borderPos[0]<edgedPicture.cols/2) && (borderPos[2]>edgedPicture.cols/2))
