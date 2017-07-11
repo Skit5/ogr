@@ -24,6 +24,10 @@ namespace ogr{
                 cout<<"Could not load picture"<<endl<<e.msg<<endl;
             return result;
         }
+        /// Affichage des informations à traiter
+        if(DEBUG){
+            imshow("Image initiale", bgrPicture);
+        }
 
         /// Extraction des calques hsv et gris
         cvtColor(bgrPicture, hsvPicture, CV_BGR2HSV);
@@ -46,10 +50,6 @@ namespace ogr{
         /****************************
         //  FIN DE FONCTION
         ****************************/
-        /// Affichage des informations de traitement
-        if(DEBUG){
-            imshow("Image initiale", bgrPicture);
-        }
 
         /// Libère la mémoire
         bgrPicture.release();

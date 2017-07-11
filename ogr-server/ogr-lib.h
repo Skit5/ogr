@@ -101,6 +101,56 @@ namespace ogr{
     *       return: permet la manipulation des paramètres
     */
     void optimizer(vector<param2optimize>, const function<Mat()> &update);
+
+    /** LINECLASSIFIER
+    *       sépare les horizontales, les verticales et les obliques,
+    *       puis cherche les bords
+    *       params: (vector<Vec4i>) liste des lignes à traiter
+    *               (int) Erreur sur l'inclinaison des lignes
+    *                   Tolérance sur les horizontales et verticales
+    *               (vector<int>) vecteur des labels des lignes:
+    *                   0: oblique
+    *                   1: horizontale
+    *                   2: verticale
+    *               (vector<double>) histogramme des longueurs sur X
+    *               (vector<double>) histogramme des locations sur X
+    *               (vector<double>) histogramme des longueurs sur Y
+    *               (vector<double>) histogramme des locations sur Y
+    *       return: (void)
+    */
+    void lineClassifier(vector<Vec4i>, int, vector<int>&, vector<double>&, vector<double>&, vector<double>&, vector<double>&);
+
+    /** HISTO2BORDERS
+    *       récupération des extrémités des histogrammes
+    *       params: (int) Erreur sur la taille de bin de l'histogramme
+    *                   Tolérance sur l'éparpillement des bords
+    *               (vector<double>) histogramme des longueurs
+    *               (vector<double>) histogramme des locations
+    *               (Vec3d) donne les informations de la bordure inférieure
+    *                   [0]: la position moyenne de la ligne
+    *                   [1]: la longueur max
+    *                   [2]: la location min
+    *               (Vec4d) donne les informations de la bordure supérieure
+    *       return: (void)
+    */
+    void histo2Borders(int, vector<double>, vector<double>, Vec3d&, Vec3d&);
+
+    /** LINES2RECT
+    *       résolution de la zone du graphe à partir des bords détectés
+    *       params:(Vec4d) donne les positions des horizontales et verticales de bordure
+    *                   avec le centre de l'image (Xcent,Ycent) comme valeur initiale
+    *                   [0]: left
+    *                   [1]: bottom
+    *                   [2]: right
+    *                   [3]: top
+    *               (Vec4d) donne les positions où les lignes des bords commencent
+    *                   avec 0 comme valeur initiale
+    *               (Vec4d) donne les longueurs des lignes des bords
+    *                   avec 0 comme valeur initiale
+    *               (Point) centre de l'image
+    *       return: (Rect) zone correspondant aux bords extraits
+    */
+    Rect lines2Rect(Vec4d, Vec4d, Vec4d, Point);
 }
 
 #endif // OGR_LIB_INCLUDED
