@@ -152,14 +152,45 @@ namespace ogr{
 
             /// Résolution de la zone du graphe
             /// Stratégie adaptée aux infos extraites
+            double width = max(borderLength[1],borderLength[3]),
+                height = max(borderLength[0],borderLength[2]),
+                locY = min(borderLength[1]-centerY,borderLength[3]-centerY)+centerY,
+                locX = min(borderLength[0]-centerX,borderLength[2]-centerX)+centerX;
             bool isTop=(borderPos[3]>centerY),
                 isBot=(borderPos[1]<centerY),
                 isRight=(borderPos[2]<centerX),
                 isLeft=(borderPos[0]<centerX);
-            double width = max(borderLength[1],borderLength[3]),
-                height = max(borderLength[0],borderLength[2]);
             Point tl,br;
 
+            int nbrBords = isTop+isBot+isLeft+isRight;
+            if(nbrBords>=2){
+                if(!isLeft){
+                    if(isRight)
+                        borderPos[0] = borderPos[2] - width;
+                    else
+                        borderPos[0] = locX;
+                }
+                if(!isRight)
+                    borderPos[2] = borderPos[0] + width;
+                if(!isBot){
+                    if(isTop)
+                        borderPos[1] = borderPos[3] - height;
+                    else
+                        borderPos[1] = locY;
+                }
+                if(!isTop)
+                    borderPos[3] = borderPos[1] + height;
+            }else{
+                cout<<"Erreur: pas assez de lignes détectées pour définir la zone du graphe"
+            }
+
+            tl = Point(borderPos[0],borderPos[3]);
+            br = Point(borderPos[2],borderPos[1]);
+            graphZone = Rect(tl,br);
+
+            return detectedLines;
+        });
+        /*
             if(isTop&&isBot&&isRight&&isLeft){
                 tl = Point(borderPos[0],borderPos[3]);
                 br = Point(borderPos[2],borderPos[1]);
@@ -200,6 +231,8 @@ namespace ogr{
             graphZone = Rect(tl,br);
 
         }
+*/
+/*
             if(width <= 0){ /// pas de ligne sur la largeur trouvée
                 if((borderPos[0]<edgedPicture.cols/2) && (borderPos[2]>edgedPicture.cols/2))
                     /// On utilise la différence entre les
@@ -266,9 +299,6 @@ namespace ogr{
                 }
             }
 
-            return detectedLines;
-        });
-/*
 
             for( size_t i = 0; i < lines.size(); i++ ){
                 Vec4i l = lines[i];
