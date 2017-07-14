@@ -99,32 +99,44 @@ namespace ogr{
         double centerX = edgedPicture.cols/2, centerY = edgedPicture.rows/2;
         Rect graphZone;
         int thresh=50, alignementErr=2, histoErr=2,
-            minLineLength=50, maxLineGap=5;
+            minLineLength=50, maxLineGap=5, maxLine=max(edgedPicture.cols,edgedPicture.rows);
         vector<param2optimize> params{
-            {&thresh,"Threshold",255},
-            {&minLineLength,"MinLineLength",255},
-            {&maxLineGap,"MaxLineGap",255},
-            {&alignementErr,"AlignmentError",255},
-            {&histoErr,"HistogramError",255}
+            {&histoErr,"LinesMargin",100},
+            {&thresh,"Threshold",maxLine},
+            {&minLineLength,"MinLineLength",maxLine},
+            {&maxLineGap,"MaxLineGap",maxLine},
+            {&alignementErr,"AlignmentError",100}
         };
 
         optimizer(params, [=, &lines, &graphZone]()->Mat{
-            vector<int> labels;
+            //vector<int> xLinWidth(edgedPicture.cols), yLinWidth(edgedPicture.rows);
+            vector<Vec2i> horizontales(edgedPicture.rows), verticales(edgedPicture.cols);
+            vector<Vec4i> fullHor, fullVer;
             Mat detectedLines;
             cvtColor(edgedPicture,detectedLines,CV_GRAY2BGR);
-            Vec4d borderPos={centerX,centerY,centerX,centerY},
-                borderLength={0,0,0,0}, borderLoc={0,0,0,0};
-            vector<double> histoCoLocX(edgedPicture.cols), histoLocX(edgedPicture.cols),
-                histoCoLocY(edgedPicture.rows), histoLocY(edgedPicture.rows);
+            //Vec4d borderPos={centerX,centerY,centerX,centerY},
+            //    borderLength={0,0,0,0}, borderLoc={0,0,0,0};
+           // vector<double> histoCoLocX(edgedPicture.cols), histoLocX(edgedPicture.cols),
+           //     histoCoLocY(edgedPicture.rows), histoLocY(edgedPicture.rows);
 
-            HoughLinesP(edgedPicture, lines, *(params[4].paramAddress)+1, CV_PI/180, *(params[0].paramAddress),
-                (double)*(params[1].paramAddress), (double)*(params[2].paramAddress));
-            lineClassifier(lines,*(params[3].paramAddress),labels,
-                histoCoLocX,histoLocX,histoCoLocY,histoLocY);
+            HoughLinesP(edgedPicture, lines, 1, CV_PI/180, *(params[1].paramAddress),
+                (double)*(params[2].paramAddress), (double)*(params[3].paramAddress));
+            lineClassifier(lines,*(params[4].paramAddress),horizontales,verticales);
+            cout<<"== Ver(X cst) =="<<endl;
+            linEdge2linQuad(verticales, fullVer, *(params[0].paramAddress));
+            cout<<"== Hor(Y cst) =="<<endl;
+            linEdge2linQuad(horizontales, fullHor, *(params[0].paramAddress));
+            //normalizeLinQuad(fullHor, fullHor);
+            //normalizeLinQuad(fullVer, fullVer);
+            //lines2Rect(fullHor,fullVer,Point(centerX,centerY),lines,graphZone);
 
+            //lineClassifier(lines,*(params[4].paramAddress),labels,
+            //    histoCoLocX,histoLocX,histoCoLocY,histoLocY);
+
+            /*
             Vec3d top,bot,left,right;
-            histo2Borders(*(params[4].paramAddress),histoCoLocX,histoLocX,left,right);
-            histo2Borders(*(params[4].paramAddress),histoCoLocY,histoLocY,bot,top);
+            histo2Borders(*(params[0].paramAddress),histoCoLocX,histoLocX,left,right);
+            histo2Borders(*(params[0].paramAddress),histoCoLocY,histoLocY,bot,top);
             if(DEBUG)
                 cout<<"== Detected boundaries =="<<endl;
             if(top[1]>0){
@@ -158,13 +170,22 @@ namespace ogr{
             if(DEBUG)
                 cout<<endl;
             graphZone = lines2Rect(borderPos,borderLength,borderLoc,Point(centerX,centerY));
-
+            */
 
             /// En mode debug, on va traiter l'affichage des lignes
             /// et du contour pour ajuster les paramètres à l'oeil
             if(DEBUG){
-                rectangle(detectedLines,graphZone, Scalar(0,0,255),3);
-                for( size_t i = 0; i < lines.size(); i++ ){
+                //rectangle(detectedLines,graphZone, Scalar(0,0,255),3);
+                for( size_t i = 0; i < fullHor.size(); i++ ){
+                    line( detectedLines, Point(fullHor[i][1], fullHor[i][0]), Point(fullHor[i][2], fullHor[i][0]),
+                        Scalar(0,255,0), fullHor[i][3], CV_AA);
+                }
+                for( size_t i = 0; i < fullVer.size(); i++ ){
+                    line( detectedLines, Point(fullVer[i][0], fullVer[i][1]), Point(fullVer[i][0], fullVer[i][2]),
+                        Scalar(255,0,0), fullVer[i][3], CV_AA);
+                }
+
+                /*for( size_t i = 0; i < lines.size(); i++ ){
                     Vec4i l = lines[i];
                     Scalar color;
                     int label = labels[i];
@@ -176,9 +197,9 @@ namespace ogr{
                     }else{ /// oblique
                         color = Scalar(170,170,0);
                     }
-                    line( detectedLines, Point(l[0], l[1]), Point(l[2], l[3]), color, 1, CV_AA);
-                }
-                resize(detectedLines, detectedLines, detectedLines.size());
+                    line( detectedLines, Point(l[0], l[1]), Point(l[2], l[3]), color, *(params[0].paramAddress)+1, CV_AA);
+                }*/
+                //resize(detectedLines, detectedLines, detectedLines.size());
             }
             return detectedLines;
         });
@@ -186,31 +207,81 @@ namespace ogr{
         return graphZone;
     }
 
-    void lineClassifier(vector<Vec4i> lines, int errAlign, vector<int> &labels,
-        vector<double> &histoCoLocX, vector<double> &histoLocX,
-        vector<double> &histoCoLocY, vector<double> &histoLocY){
+    void lineClassifier(vector<Vec4i> lines, int errAlign,
+        vector<Vec2i> &horizontales, vector<Vec2i> &verticales){
 
         for( size_t i = 0; i < lines.size(); i++ ){
             Vec4i l = lines[i];
-            int label = 0;
-            double lineLength = sqrt( pow(l[2]-l[0], 2) + pow(l[1]-l[3], 2));
-            //cout<<" l0="<<l[0]<<" l1="<<l[1]<<" l2="<<l[2]<<" l3="<<l[3]<<endl;
-            if(abs(l[0]-l[2])<= errAlign){
-                label = 2; /// verticale
-                histoCoLocX[l[0]] = max(histoCoLocX[l[0]],(double)l[1]);
-                histoLocX[l[0]] = min(histoLocX[l[0]], (double)l[3]);
+            //cout<<l[0]<<" "<<l[1]<<" "<<l[2]<<" "<<l[3]<<endl;
+
+            if(abs(l[0]-l[2])<= errAlign){/// verticale si dX petit
+                int Pos = round((l[0]+l[2])/2),
+                    loc=min(l[1],l[3]),coLoc=max(l[1],l[3]);
+                if((verticales[Pos][0]+verticales[Pos][1]) > 0){
+                    loc = min(loc, verticales[Pos][0]);
+                    coLoc = max(coLoc, verticales[Pos][1]);
+                }
+                verticales[Pos] = {loc, coLoc};
             }
-            else if(abs(l[1]-l[3])<= errAlign){
-                label = 1; /// horizontale
-                histoCoLocY[l[1]] = max(histoCoLocY[l[1]],(double)l[2]);
-                histoLocY[l[1]] = min(histoLocY[l[1]], (double)l[0]);
+            else if(abs(l[1]-l[3])<= errAlign){/// horizontale si dY petit
+                int Pos = round((l[1]+l[3])/2),
+                    loc=min(l[0],l[2]),coLoc=max(l[0],l[2]);
+                if((horizontales[Pos][0]+horizontales[Pos][1]) > 0){
+                    loc = min(loc, horizontales[Pos][0]);
+                    coLoc = max(coLoc, horizontales[Pos][1]);
+                }
+                horizontales[Pos] = {loc, coLoc};
             }
-            labels.push_back(label);
         }
         return;
     }
 
-    void histo2Borders(int histoErr, vector<double> histoCoLoc,
+    void linEdge2linQuad(vector<Vec2i> inputHisto, vector<Vec4i> &outputHisto, int errHisto){
+        int _pos = -1, middle = round(inputHisto.size()/2), sumBin = 0,
+            _last = -1, loc = middle, coLoc = middle, binNbr = 0;
+        vector<Vec4i> buffHisto;
+
+        for(int k=0; k<inputHisto.size(); ++k){
+            //cout<<"["<<k<<"] = "<<inputHisto[k]<<endl;
+            if((inputHisto[k][0]+inputHisto[k][1])>0){
+                if(_pos<0){ /// Initialisation
+                    _pos = k;
+                    loc = middle;
+                    coLoc = middle;
+                    binNbr = 0;
+                    sumBin = 0;
+                }
+                _last = k;
+                loc = min(loc, inputHisto[k][0]);
+                coLoc = max(coLoc, inputHisto[k][1]);
+                ++binNbr;
+                sumBin += k;
+            }
+            if(((k-_pos>errHisto) || (k==inputHisto.size()-1))&&(_pos>=0)){
+                int meanBin = round(sumBin/binNbr),
+                    widthBin = max(abs(meanBin-_pos), abs(meanBin-_last))+1;
+                Vec4i truc = {meanBin, loc, coLoc, widthBin};
+                cout<<k<<": \t"<<_pos<<"<"<<meanBin<<"<"<<_last<<"\t "<<(_pos<=meanBin)<<"|"<<(meanBin<=_last)<<endl;
+                cout<<truc<<endl;
+                buffHisto.push_back(truc);
+                _pos = -1; /// Reset
+            }
+        }
+
+        outputHisto = buffHisto;
+
+        return;
+    }
+
+    void normalizeLinQuad(vector<Vec4i> inputHisto, vector<Vec4i> &outputHisto){
+        float prob[inputHisto.size()] = {};
+
+        for(int i=0; i<inputHisto.size(); ++i){
+
+        }
+    }
+
+    /*void histo2Borders(int histoErr, vector<double> histoCoLoc,
         vector<double> histoLoc, Vec3d &borderInf, Vec3d &borderSup){
 
         if(histoCoLoc.size() == histoLoc.size()){  /// On teste si les tailles sont cohérentes
@@ -258,9 +329,10 @@ namespace ogr{
             }
         }
         return;
-    }
+    }*/
 
-    Rect lines2Rect(Vec4d borderPos, Vec4d borderLength, Vec4d borderLoc, Point center){
+    void lines2Rect(vector<Vec4i> horizontales, vector<Vec4i> verticales, Point center, vector<Vec4i> &outLines, Rect &zone){
+            double borderLength[4], borderPos[4], borderLoc[4];
             double width = max(borderLength[1],borderLength[3]),
                 height = max(borderLength[0],borderLength[2]),
                 locY = min(borderLength[1]-center.y,borderLength[3]-center.y)+center.y,
@@ -270,7 +342,6 @@ namespace ogr{
                 isRight=(borderLength[2]>0),
                 isLeft=(borderLength[0]>0);
             int nbrBords = isTop+isBot+isLeft+isRight;
-            Rect output;
 
             cout<<"width:"<<width<<" height:"<<height<<endl;
 
@@ -300,15 +371,13 @@ namespace ogr{
                         <<" L :"<<borderPos[0]<<" R :"<<borderPos[2]<<endl;
                 }
 
-                Point tl = Point(borderPos[0],borderPos[3]),
-                br = Point(borderPos[2],borderPos[1]);
-                output = Rect(br,tl);
+                zone = Rect(Point(borderPos[0],borderPos[3]),Point(borderPos[2],borderPos[1]));
             }else{
                 if(DEBUG)
                     cout<<"Erreur: pas assez de lignes détectées pour définir la zone du graphe"<<endl;
             }
 
-            return output;
+            return;
     }
 
     /****************************

@@ -108,17 +108,24 @@ namespace ogr{
     *       params: (vector<Vec4i>) liste des lignes à traiter
     *               (int) Erreur sur l'inclinaison des lignes
     *                   Tolérance sur les horizontales et verticales
-    *               (vector<int>) vecteur des labels des lignes:
-    *                   0: oblique
-    *                   1: horizontale
-    *                   2: verticale
-    *               (vector<double>) histogramme des longueurs sur X
-    *               (vector<double>) histogramme des locations sur X
-    *               (vector<double>) histogramme des longueurs sur Y
-    *               (vector<double>) histogramme des locations sur Y
+    *               (vector<Vec2i>) vecteur des horizontales:
+    *                   []: Pos
+    *                   0: Loc
+    *                   1: CoLoc
+    *               (vector<Vec2i>) vecteur des verticales
     *       return: (void)
     */
-    void lineClassifier(vector<Vec4i>, int, vector<int>&, vector<double>&, vector<double>&, vector<double>&, vector<double>&);
+    void lineClassifier(vector<Vec4i>, int, vector<Vec2i>&, vector<Vec2i>&);
+
+    /** LINEDGE2LINQUAD
+    *       regroupe des lignes d'arêtes en lignes de quadrillage
+    *           fonctionne sur la projection des lignes
+    *       params: (vector<Vec4i>) liste des bords détectées
+    *               (vector<Vec4i>) liste des segments reconstitués
+    *               (int) largeur de recherche pour la ligne
+    *       return: (void)
+    */
+    void linEdge2linQuad(vector<Vec2i>, vector<Vec4i> &, int);
 
     /** HISTO2BORDERS
     *       récupération des extrémités des histogrammes
