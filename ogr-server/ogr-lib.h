@@ -63,12 +63,14 @@ namespace ogr{
     */
     Mat getEdges(Mat);
 
-    /** GETGRAPHAREA
-    *       extrait le masque de zone
+    /** GETLINES
+    *       extrait les lignes vectorisées à partir des fragments de leurs arêtes
     *       params: (Mat) masque des arêtes
-    *       return: (Rect) rectangle de zone
+    *               (vector<Vec4i>) liste des horizontales
+    *               (vector<Vec4i>) liste des verticales
+    *       return: (void)
     */
-    Rect getGraphArea(Mat);
+    void getLines(Mat, vector<Vec4i>&, vector<Vec4i>&);
 
     /** GETCOLORMASKS
     *       extrait les masques des différentes couleurs de courbes
@@ -144,20 +146,13 @@ namespace ogr{
 
     /** LINES2RECT
     *       résolution de la zone du graphe à partir des bords détectés
-    *       params:(Vec4d) donne les positions des horizontales et verticales de bordure
-    *                   avec le centre de l'image (Xcent,Ycent) comme valeur initiale
-    *                   [0]: left
-    *                   [1]: bottom
-    *                   [2]: right
-    *                   [3]: top
-    *               (Vec4d) donne les positions où les lignes des bords commencent
-    *                   avec 0 comme valeur initiale
-    *               (Vec4d) donne les longueurs des lignes des bords
-    *                   avec 0 comme valeur initiale
-    *               (Point) centre de l'image
-    *       return: (Rect) zone correspondant aux bords extraits
+    *       params: (Vec4i) donne les horizontales
+    *               (Vec4i) donne les verticales
+    *               (Point) donne le centre de l'image
+    *               (Rect)  retourne la zone du graphe
+    *       return: (void)
     */
-    Rect lines2Rect(Vec4d, Vec4d, Vec4d, Point);
+    void lines2Rect(vector<Vec4i>, vector<Vec4i>, Point, Rect&);
 }
 
 #endif // OGR_LIB_INCLUDED

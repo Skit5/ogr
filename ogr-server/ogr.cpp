@@ -12,6 +12,7 @@ namespace ogr{
             areaMask;
         Rect graphArea;
         vector<Mat> colorMasks;
+        vector<Vec4i> horizontales, verticales;
 
         /****************************
         //  PRÉTRAITEMENT
@@ -36,15 +37,21 @@ namespace ogr{
         /// Détection des bords
         edgesPicture = getEdges(hsvSplitted[2]);
 
-        /// Définition de la zone de travail
-        graphArea = getGraphArea(edgesPicture);
+        /// Détection des lignes
+        getLines(edgesPicture, horizontales, verticales);
 
+        /// Définition de la zone de travail
+        //lines2Rect(horizontales, verticales, Point(edgesPicture.cols/2,edgesPicture.rows/2), graphArea);
+
+        /****************************
+        //  NETTOYAGE
+        ****************************/
         /// Extraction des masques de couleurs
         colorMasks = getColorMasks(hsvSplitted, edgesPicture, graphArea);
 
 
         /****************************
-        //  TRAITEMENT
+        //  NUMÉRISATION
         ****************************/
 
         /****************************

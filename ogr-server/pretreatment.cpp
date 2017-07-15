@@ -94,10 +94,7 @@ namespace ogr{
     //  DETECTION DE LA ZONE
     ****************************/
 
-    Rect getGraphArea(Mat edgedPicture){
-        vector<Vec4i> lines;
-        double centerX = edgedPicture.cols/2, centerY = edgedPicture.rows/2;
-        Rect graphZone;
+    void getLines(Mat edgedPicture, vector<Vec4i> &fullHor, vector<Vec4i> &fullVer){
         int thresh=50, alignementErr=2, histoErr=2,
             minLineLength=50, maxLineGap=5, maxLine=max(edgedPicture.cols,edgedPicture.rows);
         vector<param2optimize> params{
@@ -108,74 +105,24 @@ namespace ogr{
             {&alignementErr,"AlignmentError",100}
         };
 
-        optimizer(params, [=, &lines, &graphZone]()->Mat{
-            //vector<int> xLinWidth(edgedPicture.cols), yLinWidth(edgedPicture.rows);
+        optimizer(params, [=, &fullHor, &fullVer]()->Mat{
             vector<Vec2i> horizontales(edgedPicture.rows), verticales(edgedPicture.cols);
-            vector<Vec4i> fullHor, fullVer;
             Mat detectedLines;
+            vector<Vec4i> lines;
             cvtColor(edgedPicture,detectedLines,CV_GRAY2BGR);
-            //Vec4d borderPos={centerX,centerY,centerX,centerY},
-            //    borderLength={0,0,0,0}, borderLoc={0,0,0,0};
-           // vector<double> histoCoLocX(edgedPicture.cols), histoLocX(edgedPicture.cols),
-           //     histoCoLocY(edgedPicture.rows), histoLocY(edgedPicture.rows);
 
             HoughLinesP(edgedPicture, lines, 1, CV_PI/180, *(params[1].paramAddress),
                 (double)*(params[2].paramAddress), (double)*(params[3].paramAddress));
             lineClassifier(lines,*(params[4].paramAddress),horizontales,verticales);
-            cout<<"== Ver(X cst) =="<<endl;
+            if(DEBUG)
+                cout<<"== Ver(X cst) =="<<endl;
             linEdge2linQuad(verticales, fullVer, *(params[0].paramAddress));
-            cout<<"== Hor(Y cst) =="<<endl;
+            if(DEBUG)
+                cout<<"== Hor(Y cst) =="<<endl;
             linEdge2linQuad(horizontales, fullHor, *(params[0].paramAddress));
-            //normalizeLinQuad(fullHor, fullHor);
-            //normalizeLinQuad(fullVer, fullVer);
-            //lines2Rect(fullHor,fullVer,Point(centerX,centerY),lines,graphZone);
-
-            //lineClassifier(lines,*(params[4].paramAddress),labels,
-            //    histoCoLocX,histoLocX,histoCoLocY,histoLocY);
-
-            /*
-            Vec3d top,bot,left,right;
-            histo2Borders(*(params[0].paramAddress),histoCoLocX,histoLocX,left,right);
-            histo2Borders(*(params[0].paramAddress),histoCoLocY,histoLocY,bot,top);
-            if(DEBUG)
-                cout<<"== Detected boundaries =="<<endl;
-            if(top[1]>0){
-                borderPos[3] = top[0];
-                borderLoc[3] = top[2];
-                borderLength[3] = top[1] - top[2];
-                if(DEBUG)
-                    cout<<"T :"<<borderPos[3]<<" "<<borderLength[3]<<" "<<top[1] - top[2]<<" "<<top[1]<<" "<<top[2]<<" ";
-            }
-            if(bot[1]>0){
-                borderPos[1] = bot[0];
-                borderLoc[1] = bot[2];
-                borderLength[1] = bot[1] - bot[2];
-                if(DEBUG)
-                    cout<<"B :"<<borderPos[1]<<" "<<borderLength[1]<<" ";
-            }
-            if(left[1]>0){
-                borderPos[0] = left[0];
-                borderLoc[0] = left[2];
-                borderLength[0] = left[1] - left[2];
-                if(DEBUG)
-                    cout<<"L :"<<borderPos[0]<<" ";
-            }
-            if(right[1]>0){
-                borderPos[2] = right[0];
-                borderLoc[2] = right[2];
-                borderLength[2] = right[1] - right[2];
-                if(DEBUG)
-                    cout<<"R :"<<borderPos[2]<<" ";
-            }
-            if(DEBUG)
-                cout<<endl;
-            graphZone = lines2Rect(borderPos,borderLength,borderLoc,Point(centerX,centerY));
-            */
 
             /// En mode debug, on va traiter l'affichage des lignes
-            /// et du contour pour ajuster les paramètres à l'oeil
             if(DEBUG){
-                //rectangle(detectedLines,graphZone, Scalar(0,0,255),3);
                 for( size_t i = 0; i < fullHor.size(); i++ ){
                     line( detectedLines, Point(fullHor[i][1], fullHor[i][0]), Point(fullHor[i][2], fullHor[i][0]),
                         Scalar(0,255,0), fullHor[i][3], CV_AA);
@@ -184,27 +131,11 @@ namespace ogr{
                     line( detectedLines, Point(fullVer[i][0], fullVer[i][1]), Point(fullVer[i][0], fullVer[i][2]),
                         Scalar(255,0,0), fullVer[i][3], CV_AA);
                 }
-
-                /*for( size_t i = 0; i < lines.size(); i++ ){
-                    Vec4i l = lines[i];
-                    Scalar color;
-                    int label = labels[i];
-
-                    if(label == 2){ /// verticale
-                        color = Scalar(255,0,0);
-                    }else if(label==1){ /// horizontale
-                        color = Scalar(0,255,0);
-                    }else{ /// oblique
-                        color = Scalar(170,170,0);
-                    }
-                    line( detectedLines, Point(l[0], l[1]), Point(l[2], l[3]), color, *(params[0].paramAddress)+1, CV_AA);
-                }*/
-                //resize(detectedLines, detectedLines, detectedLines.size());
             }
             return detectedLines;
         });
 
-        return graphZone;
+        return;
     }
 
     void lineClassifier(vector<Vec4i> lines, int errAlign,
@@ -259,11 +190,10 @@ namespace ogr{
             }
             if(((k-_pos>errHisto) || (k==inputHisto.size()-1))&&(_pos>=0)){
                 int meanBin = round(sumBin/binNbr),
-                    widthBin = max(abs(meanBin-_pos), abs(meanBin-_last))+1;
-                Vec4i truc = {meanBin, loc, coLoc, widthBin};
-                cout<<k<<": \t"<<_pos<<"<"<<meanBin<<"<"<<_last<<"\t "<<(_pos<=meanBin)<<"|"<<(meanBin<=_last)<<endl;
-                cout<<truc<<endl;
-                buffHisto.push_back(truc);
+                    widthBin = _last-_pos+1;
+                if(DEBUG)
+                    cout<<k<<": \t"<<_pos<<"<"<<meanBin<<"<"<<_last<<"\t "<<(_pos<=meanBin)<<"|"<<(meanBin<=_last)<<endl;
+                buffHisto.push_back({meanBin, loc, coLoc, widthBin});
                 _pos = -1; /// Reset
             }
         }
@@ -331,7 +261,7 @@ namespace ogr{
         return;
     }*/
 
-    void lines2Rect(vector<Vec4i> horizontales, vector<Vec4i> verticales, Point center, vector<Vec4i> &outLines, Rect &zone){
+    void lines2Rect(vector<Vec4i> horizontales, vector<Vec4i> verticales, Point center, Rect &zone){
             double borderLength[4], borderPos[4], borderLoc[4];
             double width = max(borderLength[1],borderLength[3]),
                 height = max(borderLength[0],borderLength[2]),
@@ -376,6 +306,100 @@ namespace ogr{
                 if(DEBUG)
                     cout<<"Erreur: pas assez de lignes détectées pour définir la zone du graphe"<<endl;
             }
+
+
+            optimizer(params, [=, &fullHor, &fullVer]()->Mat{
+                vector<Vec2i> horizontales(edgedPicture.rows), verticales(edgedPicture.cols);
+                Mat detectedLines;
+                vector<Vec4i> lines;
+                cvtColor(edgedPicture,detectedLines,CV_GRAY2BGR);
+
+                HoughLinesP(edgedPicture, lines, 1, CV_PI/180, *(params[1].paramAddress),
+                    (double)*(params[2].paramAddress), (double)*(params[3].paramAddress));
+                lineClassifier(lines,*(params[4].paramAddress),horizontales,verticales);
+                if(DEBUG)
+                    cout<<"== Ver(X cst) =="<<endl;
+                linEdge2linQuad(verticales, fullVer, *(params[0].paramAddress));
+                if(DEBUG)
+                    cout<<"== Hor(Y cst) =="<<endl;
+                linEdge2linQuad(horizontales, fullHor, *(params[0].paramAddress));
+                //normalizeLinQuad(fullHor, fullHor);
+                //normalizeLinQuad(fullVer, fullVer);
+                //lines2Rect(fullHor,fullVer,Point(centerX,centerY),lines,graphZone);
+
+                //lineClassifier(lines,*(params[4].paramAddress),labels,
+                //    histoCoLocX,histoLocX,histoCoLocY,histoLocY);
+
+                /*
+                Vec3d top,bot,left,right;
+                histo2Borders(*(params[0].paramAddress),histoCoLocX,histoLocX,left,right);
+                histo2Borders(*(params[0].paramAddress),histoCoLocY,histoLocY,bot,top);
+                if(DEBUG)
+                    cout<<"== Detected boundaries =="<<endl;
+                if(top[1]>0){
+                    borderPos[3] = top[0];
+                    borderLoc[3] = top[2];
+                    borderLength[3] = top[1] - top[2];
+                    if(DEBUG)
+                        cout<<"T :"<<borderPos[3]<<" "<<borderLength[3]<<" "<<top[1] - top[2]<<" "<<top[1]<<" "<<top[2]<<" ";
+                }
+                if(bot[1]>0){
+                    borderPos[1] = bot[0];
+                    borderLoc[1] = bot[2];
+                    borderLength[1] = bot[1] - bot[2];
+                    if(DEBUG)
+                        cout<<"B :"<<borderPos[1]<<" "<<borderLength[1]<<" ";
+                }
+                if(left[1]>0){
+                    borderPos[0] = left[0];
+                    borderLoc[0] = left[2];
+                    borderLength[0] = left[1] - left[2];
+                    if(DEBUG)
+                        cout<<"L :"<<borderPos[0]<<" ";
+                }
+                if(right[1]>0){
+                    borderPos[2] = right[0];
+                    borderLoc[2] = right[2];
+                    borderLength[2] = right[1] - right[2];
+                    if(DEBUG)
+                        cout<<"R :"<<borderPos[2]<<" ";
+                }
+                if(DEBUG)
+                    cout<<endl;
+                graphZone = lines2Rect(borderPos,borderLength,borderLoc,Point(centerX,centerY));
+                */
+
+                /// En mode debug, on va traiter l'affichage des lignes
+                /// et du contour pour ajuster les paramètres à l'oeil
+                if(DEBUG){
+                    //rectangle(detectedLines,graphZone, Scalar(0,0,255),3);
+                    for( size_t i = 0; i < fullHor.size(); i++ ){
+                        line( detectedLines, Point(fullHor[i][1], fullHor[i][0]), Point(fullHor[i][2], fullHor[i][0]),
+                            Scalar(0,255,0), fullHor[i][3], CV_AA);
+                    }
+                    for( size_t i = 0; i < fullVer.size(); i++ ){
+                        line( detectedLines, Point(fullVer[i][0], fullVer[i][1]), Point(fullVer[i][0], fullVer[i][2]),
+                            Scalar(255,0,0), fullVer[i][3], CV_AA);
+                    }
+
+                    /*for( size_t i = 0; i < lines.size(); i++ ){
+                        Vec4i l = lines[i];
+                        Scalar color;
+                        int label = labels[i];
+
+                        if(label == 2){ /// verticale
+                            color = Scalar(255,0,0);
+                        }else if(label==1){ /// horizontale
+                            color = Scalar(0,255,0);
+                        }else{ /// oblique
+                            color = Scalar(170,170,0);
+                        }
+                        line( detectedLines, Point(l[0], l[1]), Point(l[2], l[3]), color, *(params[0].paramAddress)+1, CV_AA);
+                    }*/
+                    //resize(detectedLines, detectedLines, detectedLines.size());
+                }
+                return detectedLines;
+            });
 
             return;
     }
