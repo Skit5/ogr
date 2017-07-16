@@ -41,6 +41,7 @@ namespace ogr{
         getLines(edgesPicture, horizontales, verticales);
 
         /// Définition de la zone de travail
+        getGraphArea(horizontales, verticales, hsvSplitted[2], graphArea);
         //lines2Rect(horizontales, verticales, Point(edgesPicture.cols/2,edgesPicture.rows/2), graphArea);
 
         /****************************

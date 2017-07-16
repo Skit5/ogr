@@ -91,12 +91,12 @@ namespace ogr{
     }
 
     /****************************
-    //  DETECTION DE LA ZONE
+    //  DETECTION DES LIGNES
     ****************************/
 
     void getLines(Mat edgedPicture, vector<Vec4i> &fullHor, vector<Vec4i> &fullVer){
-        int thresh=50, alignementErr=2, histoErr=2,
-            minLineLength=50, maxLineGap=5, maxLine=max(edgedPicture.cols,edgedPicture.rows);
+        int thresh=55, alignementErr=3, histoErr=4,
+            minLineLength=60, maxLineGap=8, maxLine=max(edgedPicture.cols,edgedPicture.rows);
         vector<param2optimize> params{
             {&histoErr,"LinesMargin",100},
             {&thresh,"Threshold",maxLine},
@@ -109,7 +109,6 @@ namespace ogr{
             vector<Vec2i> horizontales(edgedPicture.rows), verticales(edgedPicture.cols);
             Mat detectedLines;
             vector<Vec4i> lines;
-            cvtColor(edgedPicture,detectedLines,CV_GRAY2BGR);
 
             HoughLinesP(edgedPicture, lines, 1, CV_PI/180, *(params[1].paramAddress),
                 (double)*(params[2].paramAddress), (double)*(params[3].paramAddress));
@@ -123,6 +122,7 @@ namespace ogr{
 
             /// En mode debug, on va traiter l'affichage des lignes
             if(DEBUG){
+                cvtColor(edgedPicture,detectedLines,CV_GRAY2BGR);
                 for( size_t i = 0; i < fullHor.size(); i++ ){
                     line( detectedLines, Point(fullHor[i][1], fullHor[i][0]), Point(fullHor[i][2], fullHor[i][0]),
                         Scalar(0,255,0), fullHor[i][3], CV_AA);
@@ -143,8 +143,6 @@ namespace ogr{
 
         for( size_t i = 0; i < lines.size(); i++ ){
             Vec4i l = lines[i];
-            //cout<<l[0]<<" "<<l[1]<<" "<<l[2]<<" "<<l[3]<<endl;
-
             if(abs(l[0]-l[2])<= errAlign){/// verticale si dX petit
                 int Pos = round((l[0]+l[2])/2),
                     loc=min(l[1],l[3]),coLoc=max(l[1],l[3]);
@@ -173,7 +171,6 @@ namespace ogr{
         vector<Vec4i> buffHisto;
 
         for(int k=0; k<inputHisto.size(); ++k){
-            //cout<<"["<<k<<"] = "<<inputHisto[k]<<endl;
             if((inputHisto[k][0]+inputHisto[k][1])>0){
                 if(_pos<0){ /// Initialisation
                     _pos = k;
@@ -203,12 +200,195 @@ namespace ogr{
         return;
     }
 
-    void normalizeLinQuad(vector<Vec4i> inputHisto, vector<Vec4i> &outputHisto){
-        float prob[inputHisto.size()] = {};
+    /****************************
+    //  DETECTION DE LA ZONE
+    ****************************/
 
-        for(int i=0; i<inputHisto.size(); ++i){
+    void getGraphArea(vector<Vec4i> horizontales, vector<Vec4i> verticales, Mat greyPic, Rect &zone){
+            Point center(greyPic.cols/2,greyPic.rows/2);
+            int thresh=0;
+            vector<param2optimize> params{
+                {&thresh,"Threshold",1000}
+            };
+            optimizer(params, [=, &zone]()->Mat{
+                Mat detectedZone;
+                vector<Vec4i> hors, vers;
 
+                filterQuad(horizontales, verticales, *(params[0].paramAddress), hors, vers);
+                lines2Rect(hors, vers, center, zone);
+
+                /// En mode debug, on va traiter l'affichage des lignes
+                /// et du contour pour ajuster les paramètres à l'oeil
+                if(DEBUG){
+                    cvtColor(greyPic,detectedZone,CV_GRAY2BGR);
+                    for( size_t i = 0; i < hors.size(); i++ ){
+                        line( detectedZone, Point(hors[i][1], hors[i][0]),
+                            Point(hors[i][2], hors[i][0]), Scalar(0,255,0), hors[i][3], CV_AA);
+                    }
+                    for( size_t i = 0; i < vers.size(); i++ ){
+                        line( detectedZone, Point(vers[i][0], vers[i][1]),
+                            Point(vers[i][0], vers[i][2]), Scalar(255,0,0), vers[i][3], CV_AA);
+                    }
+                    rectangle(detectedZone,zone, Scalar(0,0,255),3);
+                }
+                return detectedZone;
+            });
+
+            return;
+    }
+
+    void filterQuad(vector<Vec4i> horizontales, vector<Vec4i> verticales, int threshold,
+        vector<Vec4i> &horFiltered, vector<Vec4i> &verFiltered){
+
+        vector<Vec4d> horP, verP;
+
+        lines2Prob(horizontales, horP);
+        lines2Prob(verticales, verP);
+        filterLines(horizontales, horP, threshold);
+        filterLines(verticales, verP, threshold);
+
+        horFiltered = horizontales;
+        verFiltered = verticales;
+
+    }
+
+    void lines2Prob(vector<Vec4i> lines, vector<Vec4d> &probs){
+
+        gaussianCurve loc, coLoc, width;
+        Vec3d sum={0,0,0}, mean, sig={0,0,0};
+        vector<Vec4d> _probas;
+        /// Calcul des distributions des lignes
+        for(int i=0; i<lines.size(); ++i){
+            Vec4i l = lines[i];
+
+            sum[0] += l[1]; /// loc
+            sum[1] += l[2]; /// coLoc
+            sum[2] += l[3]; /// width
         }
+        mean = sum/(double)lines.size();
+        sum = {0,0,0};
+
+        for(int i=0; i<lines.size(); ++i){
+            Vec4i l = lines[i];
+
+            sum[0] += pow(l[1]-mean[0],2); /// loc
+            sum[1] += pow(l[2]-mean[1],2); /// coLoc
+            sum[2] += pow(l[3]-mean[2],2); /// width
+        }
+        sig[0] = sqrt(sum[0])/lines.size();
+        sig[1] = sqrt(sum[1])/lines.size();
+        sig[2] = sqrt(sum[2])/lines.size();
+        loc = {mean[0],sig[0]};
+        coLoc = {mean[1],sig[1]};
+        width = {mean[2],sig[2]};
+
+        for(int i=0; i<lines.size(); ++i){
+            Vec4i l = lines[i];
+
+            _probas.push_back({
+                1, /// déterminer pos demanderait une analyse harmonique: à venir
+                loc.proba(l[1]),
+                coLoc.proba(l[2]),
+                width.proba(l[3])
+            });
+            if(DEBUG)
+                cout<<i<<": \t"<<loc.proba(l[1])<<" "<<coLoc.proba(l[2])<<" "<<width.proba(l[3])
+                    <<"\t"<<(double)(loc.proba(l[1])+coLoc.proba(l[2])+width.proba(l[3]))/3<<endl;
+        }
+        probs = _probas;
+        return;
+    }
+
+    void filterLines(vector<Vec4i> &lines, vector<Vec4d> probs, int thresh){
+        if(lines.size()!=probs.size())
+            return;
+        vector<Vec4i> _lines;
+        for(int i=0; i<lines.size(); ++i){
+            Vec4d p = probs[i];
+            if((p[1]+p[2]+p[3])/3 >= (double)thresh/1000) /// thresh est en pour mille
+                _lines.push_back(lines[i]);
+        }
+        lines = _lines;
+    }
+
+    void lines2Rect(vector<Vec4i> horizontales, vector<Vec4i> verticales, Point center, Rect &zone){
+
+        sort(horizontales.begin(), horizontales.end(), [](Vec4i a, Vec4i b){
+            return (a[0] < b[0]);
+        });
+        sort(verticales.begin(), verticales.end(), [](Vec4i a, Vec4i b){
+            return (a[0] < b[0]);
+        });
+
+        Vec4i top = *(horizontales.end()-1), bot = *(horizontales.begin()),
+            left = *(verticales.begin()), right = *(verticales.end()-1);
+        bool isTop = (top[0]>center.y), isBot = (bot[0]<center.y),
+            isLeft = (left[0]<center.x), isRight = (right[0]>center.x);
+
+        if(sizeof(isTop+isLeft+isRight+isBot)<2){
+            if(DEBUG)
+                cout<<"Erreur: pas assez de lignes détectées pour définir la zone du graphe"<<endl;
+            return;
+        }
+
+        double width = max(bot[2]-bot[1],top[2]-top[1]),
+            height = max(left[2]-left[1],right[2]-right[1]),
+            locY = min(bot[1]-center.y,top[1]-center.y)+center.y,
+            locX = min(left[1]-center.x,right[1]-center.x)+center.x;
+        if(DEBUG)
+            cout<<width<<" "<<height<<" "<<locX<<" "<<locY
+                <<"\t "<<isLeft<<isRight<<isTop<<isBot
+                <<"\t "<<left[0]<<" "<<right[0]<<" "<<top[0]<<" "<<bot[0]<<endl;
+
+        if(!isLeft){
+            if(isRight)
+                left[0] = right[0] - width;
+            else
+                left[0] = locX;
+        }
+        if(!isRight)
+            right[0] = left[0] + width;
+        if(!isBot){
+            if(isTop)
+                bot[0] = top[0] - height;
+            else
+                bot[0] = locY;
+        }
+        if(!isTop)
+            top[0] = bot[0] + height;
+
+        zone = Rect(Point(right[0],bot[0]),Point(left[0],top[0]));
+        cout<<zone<<endl;
+
+
+/*
+            if(!isLeft){
+                if(isRight)
+                    borderPos[0] = borderPos[2] - width;
+                else
+                    borderPos[0] = locX;
+            }
+            if(!isRight)
+                borderPos[2] = borderPos[0] + width;
+            if(!isBot){
+                if(isTop)
+                    borderPos[1] = borderPos[3] - height;
+                else
+                    borderPos[1] = locY;
+            }
+            if(!isTop)
+                borderPos[3] = borderPos[1] + height;
+
+
+            /// Affichage des informations si on est en mode debug
+            if(DEBUG){
+                cout<<"== Calculated boundaries =="<<endl
+                    <<"T :"<<borderPos[3]<<" B :"<<borderPos[1]
+                    <<" L :"<<borderPos[0]<<" R :"<<borderPos[2]<<endl;
+            }
+
+*/
+        return;
     }
 
     /*void histo2Borders(int histoErr, vector<double> histoCoLoc,
@@ -260,163 +440,4 @@ namespace ogr{
         }
         return;
     }*/
-
-    void lines2Rect(vector<Vec4i> horizontales, vector<Vec4i> verticales, Point center, Rect &zone){
-            double borderLength[4], borderPos[4], borderLoc[4];
-            double width = max(borderLength[1],borderLength[3]),
-                height = max(borderLength[0],borderLength[2]),
-                locY = min(borderLength[1]-center.y,borderLength[3]-center.y)+center.y,
-                locX = min(borderLength[0]-center.x,borderLength[2]-center.x)+center.x;
-            bool isTop=(borderLength[3]>0),
-                isBot=(borderLength[1]>0),
-                isRight=(borderLength[2]>0),
-                isLeft=(borderLength[0]>0);
-            int nbrBords = isTop+isBot+isLeft+isRight;
-
-            cout<<"width:"<<width<<" height:"<<height<<endl;
-
-            if(nbrBords>=2){
-                if(!isLeft){
-                    if(isRight)
-                        borderPos[0] = borderPos[2] - width;
-                    else
-                        borderPos[0] = locX;
-                }
-                if(!isRight)
-                    borderPos[2] = borderPos[0] + width;
-                if(!isBot){
-                    if(isTop)
-                        borderPos[1] = borderPos[3] - height;
-                    else
-                        borderPos[1] = locY;
-                }
-                if(!isTop)
-                    borderPos[3] = borderPos[1] + height;
-
-
-                /// Affichage des informations si on est en mode debug
-                if(DEBUG){
-                    cout<<"== Calculated boundaries =="<<endl
-                        <<"T :"<<borderPos[3]<<" B :"<<borderPos[1]
-                        <<" L :"<<borderPos[0]<<" R :"<<borderPos[2]<<endl;
-                }
-
-                zone = Rect(Point(borderPos[0],borderPos[3]),Point(borderPos[2],borderPos[1]));
-            }else{
-                if(DEBUG)
-                    cout<<"Erreur: pas assez de lignes détectées pour définir la zone du graphe"<<endl;
-            }
-
-
-            optimizer(params, [=, &fullHor, &fullVer]()->Mat{
-                vector<Vec2i> horizontales(edgedPicture.rows), verticales(edgedPicture.cols);
-                Mat detectedLines;
-                vector<Vec4i> lines;
-                cvtColor(edgedPicture,detectedLines,CV_GRAY2BGR);
-
-                HoughLinesP(edgedPicture, lines, 1, CV_PI/180, *(params[1].paramAddress),
-                    (double)*(params[2].paramAddress), (double)*(params[3].paramAddress));
-                lineClassifier(lines,*(params[4].paramAddress),horizontales,verticales);
-                if(DEBUG)
-                    cout<<"== Ver(X cst) =="<<endl;
-                linEdge2linQuad(verticales, fullVer, *(params[0].paramAddress));
-                if(DEBUG)
-                    cout<<"== Hor(Y cst) =="<<endl;
-                linEdge2linQuad(horizontales, fullHor, *(params[0].paramAddress));
-                //normalizeLinQuad(fullHor, fullHor);
-                //normalizeLinQuad(fullVer, fullVer);
-                //lines2Rect(fullHor,fullVer,Point(centerX,centerY),lines,graphZone);
-
-                //lineClassifier(lines,*(params[4].paramAddress),labels,
-                //    histoCoLocX,histoLocX,histoCoLocY,histoLocY);
-
-                /*
-                Vec3d top,bot,left,right;
-                histo2Borders(*(params[0].paramAddress),histoCoLocX,histoLocX,left,right);
-                histo2Borders(*(params[0].paramAddress),histoCoLocY,histoLocY,bot,top);
-                if(DEBUG)
-                    cout<<"== Detected boundaries =="<<endl;
-                if(top[1]>0){
-                    borderPos[3] = top[0];
-                    borderLoc[3] = top[2];
-                    borderLength[3] = top[1] - top[2];
-                    if(DEBUG)
-                        cout<<"T :"<<borderPos[3]<<" "<<borderLength[3]<<" "<<top[1] - top[2]<<" "<<top[1]<<" "<<top[2]<<" ";
-                }
-                if(bot[1]>0){
-                    borderPos[1] = bot[0];
-                    borderLoc[1] = bot[2];
-                    borderLength[1] = bot[1] - bot[2];
-                    if(DEBUG)
-                        cout<<"B :"<<borderPos[1]<<" "<<borderLength[1]<<" ";
-                }
-                if(left[1]>0){
-                    borderPos[0] = left[0];
-                    borderLoc[0] = left[2];
-                    borderLength[0] = left[1] - left[2];
-                    if(DEBUG)
-                        cout<<"L :"<<borderPos[0]<<" ";
-                }
-                if(right[1]>0){
-                    borderPos[2] = right[0];
-                    borderLoc[2] = right[2];
-                    borderLength[2] = right[1] - right[2];
-                    if(DEBUG)
-                        cout<<"R :"<<borderPos[2]<<" ";
-                }
-                if(DEBUG)
-                    cout<<endl;
-                graphZone = lines2Rect(borderPos,borderLength,borderLoc,Point(centerX,centerY));
-                */
-
-                /// En mode debug, on va traiter l'affichage des lignes
-                /// et du contour pour ajuster les paramètres à l'oeil
-                if(DEBUG){
-                    //rectangle(detectedLines,graphZone, Scalar(0,0,255),3);
-                    for( size_t i = 0; i < fullHor.size(); i++ ){
-                        line( detectedLines, Point(fullHor[i][1], fullHor[i][0]), Point(fullHor[i][2], fullHor[i][0]),
-                            Scalar(0,255,0), fullHor[i][3], CV_AA);
-                    }
-                    for( size_t i = 0; i < fullVer.size(); i++ ){
-                        line( detectedLines, Point(fullVer[i][0], fullVer[i][1]), Point(fullVer[i][0], fullVer[i][2]),
-                            Scalar(255,0,0), fullVer[i][3], CV_AA);
-                    }
-
-                    /*for( size_t i = 0; i < lines.size(); i++ ){
-                        Vec4i l = lines[i];
-                        Scalar color;
-                        int label = labels[i];
-
-                        if(label == 2){ /// verticale
-                            color = Scalar(255,0,0);
-                        }else if(label==1){ /// horizontale
-                            color = Scalar(0,255,0);
-                        }else{ /// oblique
-                            color = Scalar(170,170,0);
-                        }
-                        line( detectedLines, Point(l[0], l[1]), Point(l[2], l[3]), color, *(params[0].paramAddress)+1, CV_AA);
-                    }*/
-                    //resize(detectedLines, detectedLines, detectedLines.size());
-                }
-                return detectedLines;
-            });
-
-            return;
-    }
-
-    /****************************
-    //  DETECTION DES COURBES
-    ****************************/
-    vector<Mat> getColorMasks(Mat hsvSplitted[], Mat edgedPicture, Rect workZone){
-        vector<Mat> colorMasks;
-        gaussianCurve backgroundColor, gridcolor;
-
-        return colorMasks;
-    }
-
-    gaussianCurve getBackgroundColor(Mat greyPicture, Rect workZone){
-        gaussianCurve bgColor;
-
-        return bgColor;
-    }
 }

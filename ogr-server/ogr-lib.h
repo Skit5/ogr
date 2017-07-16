@@ -24,6 +24,7 @@ namespace ogr{
     *       SPLINECUBIC définit la portion interpolée d'une courbe et ses coefficients
     *       EXTRACTEDGRAPH contient les différentes courbes extraites d'une image
     *       GAUSSIANCURVE définit une distribution gaussienne par moyenne et écart-type
+    *       PARAM2OPTIMIZE permet de manipuler les paramètres en mode debug
     */
     struct splineCubic{
         Vec4d params;
@@ -35,6 +36,9 @@ namespace ogr{
     };
     struct gaussianCurve{
         int sigma, mean;
+        double proba(int x){
+            return exp(-pow((x-this->mean)/this->sigma,2)/2)/(sqrt(2*CV_PI)*this->sigma);
+        }
     };
     struct param2optimize{
         int* paramAddress;
@@ -152,7 +156,15 @@ namespace ogr{
     *               (Rect)  retourne la zone du graphe
     *       return: (void)
     */
-    void lines2Rect(vector<Vec4i>, vector<Vec4i>, Point, Rect&);
+    void getGraphArea(vector<Vec4i> horizontales, vector<Vec4i> verticales, Mat greyPic, Rect &zone);
+
+
+    void filterQuad(vector<Vec4i> horizontales, vector<Vec4i> verticales, int threshold,
+        vector<Vec4i> &horFiltered, vector<Vec4i> &verFiltered);
+
+    void lines2Prob(vector<Vec4i> lines, vector<Vec4d> &probs);
+    void filterLines(vector<Vec4i> &lines, vector<Vec4d> probs, int thresh);
+    void lines2Rect(vector<Vec4i> horizontales, vector<Vec4i> verticales, Point center, Rect &zone);
 }
 
 #endif // OGR_LIB_INCLUDED

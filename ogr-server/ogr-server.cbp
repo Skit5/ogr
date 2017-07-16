@@ -39,6 +39,7 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
+		<Unit filename="cleaning.cpp" />
 		<Unit filename="dataset/graph0.jpg" />
 		<Unit filename="dataset/graph1.jpg" />
 		<Unit filename="dataset/graph2.jpg" />
