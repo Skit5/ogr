@@ -42,25 +42,43 @@ namespace ogr{
 
         /// Définition de la zone de travail
         getGraphArea(horizontales, verticales, hsvSplitted[2], graphArea);
-        //lines2Rect(horizontales, verticales, Point(edgesPicture.cols/2,edgesPicture.rows/2), graphArea);
 
         /****************************
         //  NETTOYAGE
         ****************************/
-        /// Extraction des masques de couleurs
-        colorMasks = getColorMasks(hsvSplitted, edgesPicture, graphArea);
+        /// Détection de la couleur de fond
 
+        /// Détection de la couleur du quadrillage
+
+        /// Production du masque de fond
+
+        /// Détection des couleurs
+
+        /// Classification des arêtes
+
+        /// Extraction des traits
+
+        //// Extraction des masques de couleurs
+        //colorMasks = getColorMasks(hsvSplitted, edgesPicture, graphArea);
 
         /****************************
         //  NUMÉRISATION
         ****************************/
 
+        /// Interpolation linéaire des traits
+
+        /// Test de présence d'un ratio sur les courbes solitaire
+
+        /// Extraction des points clés
+
+        /// Interpolation par splines cubiques
+
         /****************************
         //  FIN DE FONCTION
         ****************************/
 
-        /// Libère la mémoire
-        bgrPicture.release();
+        //// Libère la mémoire
+        //bgrPicture.release();
 
         /// Renvoie les données extraites de l'image
         return result;

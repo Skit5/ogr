@@ -5,6 +5,7 @@ namespace ogr{
     /****************************
     //  DETECTION DES ARÊTES
     ****************************/
+    string file="graph5.jpg";
 
     Mat getEdges(Mat greyPicture){
         int lowThreshold=62, highThreshold=137; /// Valeurs optimisées
@@ -47,6 +48,7 @@ namespace ogr{
 
         optimizer(params, [=, &detectedEdges]()->Mat{
             Canny(greyPicture, detectedEdges, *(params[0].paramAddress), *(params[1].paramAddress), 3);
+            imwrite("edges-"+file,detectedEdges);
             return detectedEdges;
         });
         return detectedEdges;
@@ -132,6 +134,7 @@ namespace ogr{
                         Scalar(255,0,0), fullVer[i][3], CV_AA);
                 }
             }
+            imwrite("lines-"+file,detectedLines);
             return detectedLines;
         });
 
@@ -206,7 +209,7 @@ namespace ogr{
 
     void getGraphArea(vector<Vec4i> horizontales, vector<Vec4i> verticales, Mat greyPic, Rect &zone){
             Point center(greyPic.cols/2,greyPic.rows/2);
-            int thresh=0;
+            int thresh=2;
             vector<param2optimize> params{
                 {&thresh,"Threshold",1000}
             };
@@ -231,6 +234,7 @@ namespace ogr{
                     }
                     rectangle(detectedZone,zone, Scalar(0,0,255),3);
                 }
+                imwrite("zone-"+file,detectedZone);
                 return detectedZone;
             });
 
