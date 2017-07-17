@@ -9,10 +9,12 @@ namespace ogr{
         extractedGraph result;
         Mat bgrPicture, edgesPicture,
             hsvPicture, hsvSplitted[3],
-            areaMask;
+            areaMask, edgeClusterIndices;
         Rect graphArea;
         vector<Mat> colorMasks;
-        vector<Vec4i> horizontales, verticales;
+        vector<Vec4i> horizontales, verticales, strokes;
+        vector<gaussian3> distribColors;
+        //vector<stroke> strokes;
 
         /****************************
         //  PRÉTRAITEMENT
@@ -47,27 +49,30 @@ namespace ogr{
         //  NETTOYAGE
         ****************************/
         /// Détection de la couleur de fond
+        gaussian3 distribBg = getMaxColor(hsvPicture, graphArea);
 
         /// Détection de la couleur du quadrillage
-
-        /// Production du masque de fond
+        gaussian3 distribLines = getQuadColor(hsvPicture, graphArea,
+            verticales, horizontales, distribBg);
 
         /// Détection des couleurs
+        getColors(hsvPicture, graphArea, distribColors, {distribBg, distribLines});
 
         /// Classification des arêtes
+        sortEdges(edgesPicture,hsvPicture, graphArea, distribColors,
+            edgeClusterIndices, {distribBg, distribLines});
 
         /// Extraction des traits
-
-        //// Extraction des masques de couleurs
-        //colorMasks = getColorMasks(hsvSplitted, edgesPicture, graphArea);
+        getStrokes(edgeClusterIndices, distribColors, strokes);
 
         /****************************
-        //  NUMÉRISATION
+        //  VECTORISATION
         ****************************/
 
         /// Interpolation linéaire des traits
 
-        /// Test de présence d'un ratio sur les courbes solitaire
+        /// Test de présence d'un ratio sur les courbes
+        /// solitaires et détermination de l'état P ou C
 
         /// Extraction des points clés
 

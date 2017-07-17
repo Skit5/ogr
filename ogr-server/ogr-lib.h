@@ -40,11 +40,32 @@ namespace ogr{
             return exp(-pow((x-this->mean)/this->sigma,2)/2)/(sqrt(2*CV_PI)*this->sigma);
         }
     };
+    struct gaussian3{
+        Vec3i center;
+        int deviation;
+        /*double proba(int x){
+            return exp(-pow((x-this->mean)/this->sigma,2)/2)/(sqrt(2*CV_PI)*this->sigma);
+        }*/
+    };
     struct param2optimize{
         int* paramAddress;
         string name;
         int paramMax;
     };
+
+    /*struct stroke{
+        int width;
+        float m,p;
+        Point a,b;
+        int get(int x){
+            if((x<a.x)||(x>b.x))
+                return -1;
+            else
+                return round(m*x+p);
+        }
+    };*/
+
+    /****** DÉTECTION ******/
 
     /** EXTRACT
     *       fonction principale de l'OGR
@@ -165,6 +186,67 @@ namespace ogr{
     void lines2Prob(vector<Vec4i> lines, vector<Vec4d> &probs);
     void filterLines(vector<Vec4i> &lines, vector<Vec4d> probs, int thresh);
     void lines2Rect(vector<Vec4i> horizontales, vector<Vec4i> verticales, Point center, Rect &zone);
+
+    /****** NETTOYAGE ******/
+
+    /** GETMAXCOLOR
+    *       détection de la distribution de la couleur de fond par méthode dimensionnelle
+    *       params: (Mat)   image hsv
+    *               (Rect)  zone du graphe
+    *       return: (gaussian3) distribution du fond
+    */
+    gaussian3 getMaxColor(Mat hsvPicture, Rect graphArea);
+
+    void getHistoHsv(Mat pic, Mat &histo3);
+    /** GETQUADCOLOR
+    *       détection de la distribution de la couleur du quadrillage à l'aide des lignes
+    *       params: (Mat)   image hsv
+    *               (Rect)  zone du graphe
+    *               (vector<Vec4i>) liste des verticales
+    *               (vector<Vec4i>) liste des horizontales
+    *               (gaussian3) distribution fond (optionnel)
+    *       return: (gaussian3) distribution du quadrillage
+    */
+    gaussian3 getQuadColor(Mat hsvPicture, Rect graphArea,
+        vector<Vec4i> verticales, vector<Vec4i> horizontales, gaussian3 distribBg={});
+
+    /** GETCOLORS
+    *       détection de la distribution des couleurs par filtre S*V
+    *       params: (Mat)   image hsv
+    *               (Rect)  zone du graphe
+    *               (vector<gaussian3>) liste des distributions des couleurs trouvées
+    *               (vector<gaussian3>) liste des distributions exclues (optionnel)
+    *       return: (void)
+    */
+    void getColors(Mat hsvPicture, Rect graphArea, vector<gaussian3> &distribColors, vector<gaussian3> distribMasked={});
+
+    /** SORTEDGES
+    *       classe et filtre les arêtes selon les distributions des couleurs
+    *       params: (Mat)   image des arêtes
+    *               (Mat)   image hsv
+    *               (Rect)  zone du graphe
+    *               (vector<gaussian3>) liste des distributions des couleurs
+    *               (Mat)   valeurs de couleur du masque des arêtes
+    *               (vector<gaussian3>) liste des distributions exclues (optionnel)
+    *       return: (void)
+    */
+    void sortEdges(Mat edgesPicture, Mat hsvPicture, Rect graphArea, vector<gaussian3> distribColors,
+        Mat &edgeClusterIndices, vector<gaussian3> distribMasked={});
+
+    /** GETSTROKES
+    *       recompose les traits des courbes selon les arêtes
+    *       params: (Mat)   matrice des arêtes clusterisées
+    *               (vector<gaussian3>) liste des distributions des couleurs
+    *               (vector<Vec4i>) liste des traits détectés par leurs arêtes
+    *                   [0]: x
+    *                   [1]: y
+    *                   [2]: width
+    *                   [3]: cluster
+    *       return: (void)
+    */
+    void getStrokes(Mat edgeClusterIndices, vector<gaussian3> distribColors, vector<Vec4i> &strokes);
+
+    /****** VECTORISATION ******/
 }
 
 #endif // OGR_LIB_INCLUDED
