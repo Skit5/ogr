@@ -13,7 +13,7 @@ namespace ogr{
         Rect graphArea;
         vector<Mat> colorMasks;
         vector<Vec4i> horizontales, verticales, strokes;
-        vector<gaussian3> distribColors;
+        vector<gaussianCurve> distribColors;
         //vector<stroke> strokes;
 
         /****************************
@@ -48,24 +48,24 @@ namespace ogr{
         /****************************
         //  NETTOYAGE
         ****************************/
-        /// Détection de la couleur de fond
+        /// Détection du masque de fond
         getBgMask(hsvSplitted, bgMask, graphArea,verticales,horizontales);
-        //gaussian3 distribBg = getMaxColor(hsvPicture, graphArea);
+        /*gaussian3 distribBg = getMaxColor(hsvPicture, graphArea);
 
         /// Détection de la couleur du quadrillage
         gaussian3 distribBg;
         gaussian3 distribLines = getQuadColor(hsvPicture, graphArea,
-            verticales, horizontales, distribBg);
+            verticales, horizontales, distribBg);*/
 
         /// Détection des couleurs
-        getColors(hsvPicture, graphArea, distribColors, {distribBg, distribLines});
+        getColors(hsvSplitted, graphArea, distribColors, bgMask);
 
         /// Classification des arêtes
-        sortEdges(edgesPicture,hsvPicture, graphArea, distribColors,
-            edgeClusterIndices, {distribBg, distribLines});
+        //sortEdges(edgesPicture,hsvPicture, graphArea, distribColors,
+        //    edgeClusterIndices, {distribBg, distribLines});
 
         /// Extraction des traits
-        getStrokes(edgeClusterIndices, distribColors, strokes);
+        //getStrokes(edgeClusterIndices, distribColors, strokes);
 
         /****************************
         //  VECTORISATION

@@ -1,6 +1,10 @@
 #include "ogr-lib.h"
 
 namespace ogr{
+
+    /****************************
+    //  NETTOYAGE DU FOND
+    ****************************/
     void getBgMask(Mat hsvSplitted[], Mat &mask, Rect zone,
         vector<Vec4i> vers, vector<Vec4i> hors){
         int thresh = 6, scale = 2, margin = 50, threshSV = 40;
@@ -97,7 +101,7 @@ namespace ogr{
             //imshow("echo s",hsvSplitted[1]);
             //imshow("echo v",hsvSplitted[2]);
 
-            gaussianCurve lineDistrib = histo2gaussian(histoLines);
+            gaussianCurve lineDistrib = histo2mad(histoLines);
             int _lineSup = lineDistrib.mean + lineDistrib.sigma;
             int _lineInf = lineDistrib.mean - lineDistrib.sigma;
             if(DEBUG)
@@ -158,116 +162,173 @@ namespace ogr{
 
     }
 
-    gaussian3 getMaxColor(Mat hsvPicture, Rect graphArea){
-        gaussian3 maxDistrib;
-        int thresh = 2, scale = 2, margin = 50, *maxId;
-        vector<param2optimize> params{
-            {&thresh,"HistoMaxGap",100},
-            {&thresh,"VarMargin",100},
-            {&scale,"ScaleRatio",10}
-        };
-        optimizer(params, [=, &maxDistrib]()->Mat{
-            Mat bgMask = Mat::zeros(hsvPicture.size(),hsvPicture.type()),
-                histo3,shrinkedHisto3, ratioHisto3,
-                picZone(hsvPicture, graphArea), shrinkedPicZone;
-            resize(picZone, shrinkedPicZone, picZone.size()/ *(params[2].paramAddress));
-            /// On définit notre max
-            getHistoHsv(picZone, histo3);
-            minMaxIdx(histo3, NULL, NULL, NULL, maxId);
 
-            //cout<<"max "<<maxId[0]<<" "<<maxId[1]<<" "<<maxId[2]<<endl;
-            /// On établit la variation de l'histogramme
-            getHistoHsv(shrinkedPicZone, shrinkedHisto3);
-            ratioHisto3 = histo3/shrinkedHisto3;
+    /****************************
+    //  DETECTION DES COURBES
+    ****************************/
 
-            /// Matrice des distances avec le max
-            Mat distMax(histo3.size(),CV_32FC1,Scalar(0));
-            for(int h=0; h<180; ++h){
-                for(int s=0; s<256; ++s){
-                    for(int v=0; v<256; ++v){
-                        cout<<"pou "<<h<<" "<<s<<" "<<v<<endl;
-                        distMax.at<float>(h,s,v) = sqrt(pow(h-maxId[0],2)+pow(s-maxId[1],2)+pow(v-maxId[2],2));
-                    }
-                }
-            }
-
-            /// On définit l'interval autour du max
-            int _gap = *(params[0].paramAddress);
-            double radius = sqrt(180*180+2*256*256),
-                _rad = 0;
-            while(_gap>0 && _rad<radius){
-                if(true)
-                    --_gap;
-                ++_rad;
-            }
+    void getColors(Mat hsvPic[], Rect graphArea,
+        vector<gaussianCurve> &distribColors,  Mat mask){
+            int maxThresh = 20, maxGap = 4;
+            Mat maskColor = Mat::zeros(mask.size(),CV_32SC1);
+            vector<param2optimize> params{
+                {&maxThresh,"MaxRatioThreshold",50},
+                {&maxGap,"MaxGap",100}
+            };
 
 
-            /// En mode debug,
-            if(DEBUG){
-                for(int i=graphArea.x; i<graphArea.x+graphArea.width; ++i){
-                    for(int j=graphArea.y; j<graphArea.y+graphArea.height; ++j){
-                        /*Vec3b hsv = hsvPicture.at<Vec3b>(j,i);
-                        Vec3i dist = abs((Vec3i)hsv-maxDistrib.mean);
-                        if((dist[0]<= maxDistrib.sigma[0])
-                            &&(dist[1]<= maxDistrib.sigma[1])
-                            &&(dist[2]<= maxDistrib.sigma[2])
-                            bgMask.at<Vec3b>(j,i) = hsv;*/
-                    }
-                }
-            }
-            return bgMask;
-        });
-        return maxDistrib;
-    }
-
-    void getHistoHsv(Mat pic, Mat &histo3){
-        int sizes[] = {180,256,256};
-        histo3= Mat(3, sizes, CV_64FC1, Scalar(0));
-
-        for(int i=0; i<pic.rows; ++i){
-            for(int j=0; j<pic.cols; ++j){
-                Vec3i hsv = pic.at<Vec3b>(i,j);
-                histo3.at<double>(hsv[0],hsv[1],hsv[2]) += 1;
+        /// On définit notre histogramme de teinte h
+        /// et son max
+        double histoH[256]={}, maxV = 0, maxId=-1;
+        getHistogram(hsvPic[0], histoH, mask);
+        for(int i=0; i<180; ++i){
+            if(histoH[i]>maxV){
+                maxV = histoH[i];
+                maxId = i;
             }
         }
-    }
 
-    gaussian3 getQuadColor(Mat hsvPicture, Rect graphArea,
-        vector<Vec4i> verticales, vector<Vec4i> horizontales,  gaussian3 distribBg){
-        gaussian3 quadDistrib;
-        vector<param2optimize> params{
-            //{&thresh,"Threshold",1000}
-        };
-        optimizer(params, [=, &quadDistrib]()->Mat{
-            Mat quadMask;
+        optimizer(params, [=, &distribColors, &maskColor]()->Mat{
+            Mat observedColors = Mat::zeros(mask.size(),CV_8UC3);
+            distribColors = vector<gaussianCurve>();
 
-            /// En mode debug,
-            if(DEBUG){
-
+            /// Extraire tous les domaines de couleur
+            /// Calculer leur moyenne
+            /// Calculer leur écart-ype
+            bool flagUp = false;
+            gaussianCurve currentCurve;
+            int sum = 0, weightedSum = 0, higherBound = 0, lowerBound = 0, _gap = 0;
+            for(int l=0; l<180; ++l){
+                /// Test à maxThresh% (typiquement 20%) de max value
+                if(histoH[l]>=maxId*(double)*(params[0].paramAddress) /100){
+                    if(!flagUp){ /// reset buffers avec nouvelle curve
+                        flagUp = true;
+                        currentCurve = {0,0};
+                        lowerBound = l;
+                        higherBound = l;
+                        sum = 0;
+                        weightedSum = 0;
+                    }
+                    sum += histoH[l];
+                    weightedSum += histoH[l]*l;
+                }else{
+                    ++_gap;
+                    if(flagUp && _gap > *(params[1].paramAddress)){ /// Calcul et ajout d'un nouveau domaine
+                        flagUp = false;
+                        higherBound = l;
+                        currentCurve.mean = round(weightedSum/sum);
+                        double varianceWeightedSum = 0;
+                        for(int k=lowerBound; k<higherBound; ++k)
+                            varianceWeightedSum += pow(histoH[k]*(k-currentCurve.mean),2);
+                        currentCurve.sigma = round(sqrt(varianceWeightedSum)/sum);
+                        /// Transfert du buffer vers la liste
+                        distribColors.push_back(currentCurve);
+                    }
+                }
             }
-            return quadMask;
-        });
 
-        return quadDistrib;
-    }
+            /// Réalisation des masques de probabilités
+            /// On calcule la probabilité pour chaque pixel du masque d'appartenir à une couleur
+            /// On attribue chaque pixel du masque à sa probabilité max
+            ///     (possibilité future de filtrer par la somme des probabilités)
 
-    void getColors(Mat hsvPicture, Rect graphArea,
-        vector<gaussian3> &distribColors, vector<gaussian3> distribMasked){
-            vector<param2optimize> params{
-                //{&thresh,"Threshold",1000}
-            };
-        optimizer(params, [=, &distribColors]()->Mat{
-            Mat observedColors;
-
-            /// En mode debug,
-            if(DEBUG){
-
+            /// Initialisation de la liste des masques
+            vector<Mat> colorProb;
+            for(int a=0; a<distribColors.size(); ++a)
+                colorProb.push_back(Mat::zeros(mask.size(),CV_64FC1));
+            /// Calcul de la probabilité de chaque pixel d'appartenir à un ensemble
+            for(int i=0; i<mask.cols; ++i){
+                for(int j=0; j<mask.rows; ++j){
+                    int maskVal = mask.at<uchar>(j,i);
+                    if(maskVal>0){
+                        int _hue = hsvPic[0].at<uchar>(j,i);
+                        double maxProb = 0; int maxPos = -1;
+                        for(int a=0; a<distribColors.size(); ++a){
+                            //if(abs(_hue-distribColors[a].mean) <= distribColors[a].sigma){
+                            double p = distribColors[a].proba(_hue);
+                            //colorProb[a].at<double>(j,i) = p;
+                            if(p>maxProb){
+                                maxProb = p;
+                                maxPos = a;
+                            }
+                            //}
+                        }
+                        if(maxProb>0){
+                            maskColor.at<Scalar>(j,i) =  Scalar(maxPos +1);
+                            if(DEBUG)
+                                observedColors.at<Vec3b>(j,i) = Vec3b(distribColors[maxPos].mean,255,255);
+                        }
+                    }
+                }
             }
+
+
+            /// En mode debug
+            if(DEBUG){
+                cout<<"==Detected colors=="<<endl;
+                for(int a=0; a<distribColors.size(); ++a){
+                    cout<<"#"<<a<<"/"<<distribColors.size()<<" m :"<<distribColors[a].mean<<" s:"<<distribColors[a].sigma<<endl;
+                }
+/*
+                for(int i=0; i<mask.cols; ++i){
+                    for(int j=0; j<mask.rows; ++j){
+                        int maskVal = mask.at<uchar>(j,i);
+                        if(maskVal>0){
+                            int _hue = hsvPic[0].at<uchar>(j,i);
+                            for(int a=0; a<distribColors.size(); ++a){
+                                if(abs(_hue-distribColors[a].mean) <= distribColors[a].sigma)
+                                    observedColors.at<Vec3b>(j,i) = Vec3b(distribColors[a].mean,255,255);
+                            }
+                        }
+                    }
+                }*/
+            }
+            cvtColor(observedColors,observedColors, CV_HSV2BGR);
             return observedColors;
         });
 
         return;
     }
+
+    gaussianCurve histo2mad(double histogram[]){
+        int histoSize = sizeof(histogram)/sizeof(double),
+            median = 0;
+        vector<int> histo(histoSize), deviat(histoSize);    /// Plus facile pour réordonner une liste d'indices
+        double sum = 0, sumMax = 0;
+        double b = 0, mad = 0;
+
+        iota(begin(histo), end(histo), 0);
+        sort(histo.begin(), histo.end(), [=](int a, int b){
+            return (histogram[a] < histogram[b]);
+        });
+        for(int i=0; i<histoSize; ++i)
+            sumMax += histogram[i];
+
+        /// Obtention de la médiane pondérée
+        /// Le dernier quintile sert de correcteur entre la MAD et la STD
+        for(int i=0; i<histo.size(); ++i){
+            sum += histogram[histo[i]];
+            if(sum >= sumMax*0.5)
+                median = histo[i];
+            if(sum >= sumMax*0.75)
+                b = (double)1/histo[i];
+        }
+
+        for(int i=0; i<deviat.size(); ++i)
+            deviat[i] = median - histo[i];
+
+        sort(histo.begin(), histo.end(), [=](int a, int b){
+            return (deviat[a] < deviat[b]);
+        });
+        /// Médiane des écarts non-pondérés
+        mad = (deviat[ceil((histoSize+1)/2)] + deviat[ceil((histoSize-1)/2)])/2;
+
+        return {round(b*mad), median};
+    }
+
+    /****************************
+    //  CLASSIFICATION DES ARÊTES
+    ****************************/
 
     void sortEdges(Mat edgesPicture, Mat hsvPicture, Rect graphArea, vector<gaussian3> distribColors,
         Mat &edgeClusterIndices, vector<gaussian3> distribMasked){
@@ -286,6 +347,10 @@ namespace ogr{
 
         return;
     }
+
+    /****************************
+    //  RÉCUPÉRATION DES TRAITS
+    ****************************/
 
     void getStrokes(Mat edgeClusterIndices, vector<gaussian3> distribColors, vector<Vec4i> &strokes){
             vector<param2optimize> params{
@@ -308,9 +373,6 @@ namespace ogr{
 
 
 
-    /****************************
-    //  DETECTION DES COURBES
-    ****************************/
     /*vector<Mat> getColorMasks(Mat hsvSplitted[], Mat edgedPicture, Rect workZone){
         vector<Mat> colorMasks;
         gaussianCurve backgroundColor, gridcolor;

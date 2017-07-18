@@ -37,7 +37,9 @@ namespace ogr{
     struct gaussianCurve{
         int sigma, mean;
         double proba(int x){
-            return exp(-pow((x-this->mean)/this->sigma,2)/2)/(sqrt(2*CV_PI)*this->sigma);
+            static const double sqt_inv_pi= 1/(sqrt(2*CV_PI));
+            double a = (double)(x-this->mean) / this->sigma;
+            return sqt_inv_pi / this->sigma * exp(-0.5*a*a);
         }
     };
     struct gaussian3{
@@ -192,36 +194,22 @@ namespace ogr{
     void getBgMask(Mat hsvSplitted[], Mat &bgMask, Rect graphArea,
         vector<Vec4i> verticales, vector<Vec4i> horizontales);
 
-    /** GETMAXCOLOR
-    *       détection de la distribution de la couleur de fond par méthode dimensionnelle
-    *       params: (Mat)   image hsv
-    *               (Rect)  zone du graphe
-    *       return: (gaussian3) distribution du fond
-    */
-    gaussian3 getMaxColor(Mat hsvPicture, Rect graphArea);
-
-    void getHistoHsv(Mat pic, Mat &histo3);
-    /** GETQUADCOLOR
-    *       détection de la distribution de la couleur du quadrillage à l'aide des lignes
-    *       params: (Mat)   image hsv
-    *               (Rect)  zone du graphe
-    *               (vector<Vec4i>) liste des verticales
-    *               (vector<Vec4i>) liste des horizontales
-    *               (gaussian3) distribution fond (optionnel)
-    *       return: (gaussian3) distribution du quadrillage
-    */
-    gaussian3 getQuadColor(Mat hsvPicture, Rect graphArea,
-        vector<Vec4i> verticales, vector<Vec4i> horizontales, gaussian3 distribBg={});
-
     /** GETCOLORS
     *       détection de la distribution des couleurs par filtre S*V
-    *       params: (Mat)   image hsv
+    *       params: (Mat)   image hsv séparée en matrice par channel
     *               (Rect)  zone du graphe
     *               (vector<gaussian3>) liste des distributions des couleurs trouvées
     *               (vector<gaussian3>) liste des distributions exclues (optionnel)
     *       return: (void)
     */
-    void getColors(Mat hsvPicture, Rect graphArea, vector<gaussian3> &distribColors, vector<gaussian3> distribMasked={});
+    void getColors(Mat hsvSplitted[], Rect graphArea, vector<gaussianCurve> &distribColors, Mat bgMask);
+
+    /** HISTO2MAD
+    *       convertit un histogramme en distribution autour de la médiane à déviation absolue (MAD)
+    *       params: (int[]) histogramme 256
+    *       return: (gaussianCurve) gaussienne de l'histogramme correspondant au MAD
+    */
+    gaussianCurve histo2mad(double[]);
 
     /** SORTEDGES
     *       classe et filtre les arêtes selon les distributions des couleurs

@@ -77,7 +77,6 @@ namespace ogr{
 
     gaussianCurve histo2gaussian(double histogram[]){
         gaussianCurve currentCurve = {0,0};
-        vector<gaussianCurve> colorCurves;
         double sum = 0, weightedSum = 0, varianceWeightedSum = 0;
         int histoSize = sizeof(histogram)/sizeof(double);
 
