@@ -79,13 +79,14 @@ namespace ogr{
         gaussianCurve currentCurve = {0,0};
         vector<gaussianCurve> colorCurves;
         double sum = 0, weightedSum = 0, varianceWeightedSum = 0;
+        int histoSize = sizeof(histogram)/sizeof(double);
 
-        for(int l=0; l<256; ++l){
+        for(int l=0; l<histoSize; ++l){
             sum += histogram[l];
             weightedSum += histogram[l]*l;
         }
         currentCurve.mean = round(weightedSum/sum);
-        for(int k=0; k<256; ++k)
+        for(int k=0; k<histoSize; ++k)
             varianceWeightedSum += pow(histogram[k]*(k-currentCurve.mean),2);
         currentCurve.sigma = round(sqrt(varianceWeightedSum)/sum);
 
@@ -295,9 +296,9 @@ namespace ogr{
                 coLoc.proba(l[2]),
                 width.proba(l[3])
             });
-            if(DEBUG)
+            /*if(DEBUG)
                 cout<<i<<": \t"<<loc.proba(l[1])<<" "<<coLoc.proba(l[2])<<" "<<width.proba(l[3])
-                    <<"\t"<<(double)(loc.proba(l[1])+coLoc.proba(l[2])+width.proba(l[3]))/3<<endl;
+                    <<"\t"<<(double)(loc.proba(l[1])+coLoc.proba(l[2])+width.proba(l[3]))/3<<endl;*/
         }
         probs = _probas;
         return;
@@ -332,6 +333,7 @@ namespace ogr{
         if(sizeof(isTop+isLeft+isRight+isBot)<2){
             if(DEBUG)
                 cout<<"Erreur: pas assez de lignes détectées pour définir la zone du graphe"<<endl;
+            zone = Rect(center,center);
             return;
         }
 
@@ -340,7 +342,8 @@ namespace ogr{
             locY = min(bot[1]-center.y,top[1]-center.y)+center.y,
             locX = min(left[1]-center.x,right[1]-center.x)+center.x;
         if(DEBUG)
-            cout<<width<<" "<<height<<" "<<locX<<" "<<locY
+            cout<<"w - h - lX - lY - LRTB - PL - PR - PT - PB"<<endl
+                <<width<<" "<<height<<" "<<locX<<" "<<locY
                 <<"\t "<<isLeft<<isRight<<isTop<<isBot
                 <<"\t "<<left[0]<<" "<<right[0]<<" "<<top[0]<<" "<<bot[0]<<endl;
 
@@ -360,6 +363,11 @@ namespace ogr{
         }
         if(!isTop)
             top[0] = bot[0] + height;
+
+        top[0] = min(top[0], center.y*2);
+        bot[0] = max(bot[0],0);
+        left[0] = max(left[0],0);
+        right[0] = min(right[0],center.x*2);
 
         zone = Rect(Point(right[0],bot[0]),Point(left[0],top[0]));
         cout<<zone<<endl;

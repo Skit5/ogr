@@ -9,7 +9,7 @@ namespace ogr{
         extractedGraph result;
         Mat bgrPicture, edgesPicture,
             hsvPicture, hsvSplitted[3],
-            areaMask, edgeClusterIndices;
+            bgMask, edgeClusterIndices;
         Rect graphArea;
         vector<Mat> colorMasks;
         vector<Vec4i> horizontales, verticales, strokes;
@@ -49,9 +49,11 @@ namespace ogr{
         //  NETTOYAGE
         ****************************/
         /// Détection de la couleur de fond
-        gaussian3 distribBg = getMaxColor(hsvPicture, graphArea);
+        getBgMask(hsvSplitted, bgMask, graphArea,verticales,horizontales);
+        //gaussian3 distribBg = getMaxColor(hsvPicture, graphArea);
 
         /// Détection de la couleur du quadrillage
+        gaussian3 distribBg;
         gaussian3 distribLines = getQuadColor(hsvPicture, graphArea,
             verticales, horizontales, distribBg);
 

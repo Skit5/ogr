@@ -189,6 +189,9 @@ namespace ogr{
 
     /****** NETTOYAGE ******/
 
+    void getBgMask(Mat hsvSplitted[], Mat &bgMask, Rect graphArea,
+        vector<Vec4i> verticales, vector<Vec4i> horizontales);
+
     /** GETMAXCOLOR
     *       détection de la distribution de la couleur de fond par méthode dimensionnelle
     *       params: (Mat)   image hsv
