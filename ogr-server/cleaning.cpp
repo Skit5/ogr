@@ -68,7 +68,6 @@ namespace ogr{
             /// On définit la distribution pour le quadrillage
             /// pour éviter que le spectre des courbes et du quadrillage
             /// se recoupe en niveaux de gris, on utilise s*v pour filtrer
-            //double histoLines[256] = {};
             double histoLines[256] = {};
             for(int i=0; i<vers.size(); ++i){   /// Pour chaque verticale
                 if(vers[i][0]<=zone.x+zone.width && vers[i][0]>=zone.x){
@@ -291,39 +290,50 @@ namespace ogr{
     }
 
     gaussianCurve histo2mad(double histogram[]){
-        int histoSize = sizeof(histogram)/sizeof(double),
+        int histoSize = 256,
             median = 0;
-        vector<int> histo(histoSize), deviat(histoSize);    /// Plus facile pour réordonner une liste d'indices
         double sum = 0, sumMax = 0;
         double b = 0, mad = 0;
-
-        iota(begin(histo), end(histo), 0);
-        sort(histo.begin(), histo.end(), [=](int a, int b){
-            return (histogram[a] < histogram[b]);
-        });
         for(int i=0; i<histoSize; ++i)
             sumMax += histogram[i];
 
         /// Obtention de la médiane pondérée
         /// Le dernier quintile sert de correcteur entre la MAD et la STD
-        for(int i=0; i<histo.size(); ++i){
-            sum += histogram[histo[i]];
-            if(sum >= sumMax*0.5)
-                median = histo[i];
-            if(sum >= sumMax*0.75)
-                b = (double)1/histo[i];
+        bool flagM = false, flagLQ = false;
+        for(int i=0; (i<histoSize) && !flagLQ; ++i){
+            sum += histogram[i];
+            if(sum >= sumMax*0.5 && !flagM){
+                median = i;
+                flagM = true;
+            }
+            if(sum >= sumMax*0.75 && !flagLQ){
+                b = i;
+                flagLQ = true;
+            }
         }
 
-        for(int i=0; i<deviat.size(); ++i)
-            deviat[i] = median - histo[i];
+        /// Recherche de la déviation à la médiane
+        ///     On trie l'histogramme des déviations par valeur
+        ///     On prend la valeur qui représente au moins la moitié des votes
 
+        vector<int> histo(histoSize), deviat(histoSize);    /// Plus facile pour réordonner une liste d'indices
+        for(int i=0; i<histoSize; ++i){
+            deviat[i] = abs(histogram[median] - histogram[i]);
+        }
+        iota(begin(histo), end(histo), 0); /// histo = [0:1:256[
         sort(histo.begin(), histo.end(), [=](int a, int b){
             return (deviat[a] < deviat[b]);
         });
-        /// Médiane des écarts non-pondérés
-        mad = (deviat[ceil((histoSize+1)/2)] + deviat[ceil((histoSize-1)/2)])/2;
 
-        return {round(b*mad), median};
+        sum = 0;
+        bool flagMad = false;
+        for(int i=0; (i<histoSize) && !flagMad; ++i){
+            sum += histogram[histo[i]];
+            if(sum >= sumMax/2 && !flagMad)
+                mad = histo[i];
+        }
+
+        return {round(mad/b), median};
     }
 
     /****************************

@@ -191,8 +191,8 @@ namespace ogr{
             if(((k-_pos>errHisto) || (k==inputHisto.size()-1))&&(_pos>=0)){
                 int meanBin = round(sumBin/binNbr),
                     widthBin = _last-_pos+1;
-                if(DEBUG)
-                    cout<<k<<": \t"<<_pos<<"<"<<meanBin<<"<"<<_last<<"\t "<<(_pos<=meanBin)<<"|"<<(meanBin<=_last)<<endl;
+                //if(DEBUG)
+                //    cout<<k<<": \t"<<_pos<<"<"<<meanBin<<"<"<<_last<<"\t "<<(_pos<=meanBin)<<"|"<<(meanBin<=_last)<<endl;
                 buffHisto.push_back({meanBin, loc, coLoc, widthBin});
                 _pos = -1; /// Reset
             }
@@ -316,20 +316,29 @@ namespace ogr{
     }
 
     void lines2Rect(vector<Vec4i> horizontales, vector<Vec4i> verticales, Point center, Rect &zone){
+        Vec4i top, bot,
+            left, right;
 
-        sort(horizontales.begin(), horizontales.end(), [](Vec4i a, Vec4i b){
-            return (a[0] < b[0]);
-        });
-        sort(verticales.begin(), verticales.end(), [](Vec4i a, Vec4i b){
-            return (a[0] < b[0]);
-        });
+        if(verticales.size()>0){
+            sort(verticales.begin(), verticales.end(), [](Vec4i a, Vec4i b){
+                return (a[0] < b[0]);
+            });
 
-        Vec4i top = *(horizontales.end()-1), bot = *(horizontales.begin()),
-            left = *(verticales.begin()), right = *(verticales.end()-1);
+            left = *(verticales.begin());
+            right = *(verticales.end()-1);
+        }
+        if(horizontales.size()>0){
+            sort(horizontales.begin(), horizontales.end(), [](Vec4i a, Vec4i b){
+                return (a[0] < b[0]);
+            });
+            top = *(horizontales.end()-1);
+            bot = *(horizontales.begin());
+        }
+
         bool isTop = (top[0]>center.y), isBot = (bot[0]<center.y),
             isLeft = (left[0]<center.x), isRight = (right[0]>center.x);
 
-        if(sizeof(isTop+isLeft+isRight+isBot)<2){
+        if(sizeof(isTop+isLeft+isRight+isBot)<2){   /// on vérifie s'il y a assez de lignes
             if(DEBUG)
                 cout<<"Erreur: pas assez de lignes détectées pour définir la zone du graphe"<<endl;
             zone = Rect(center,center);
