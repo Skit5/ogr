@@ -58,14 +58,21 @@ namespace ogr{
             verticales, horizontales, distribBg);*/
 
         /// Détection des couleurs
-        getColors(hsvSplitted, graphArea, distribColors, bgMask);
-
-        /// Classification des arêtes
+        //getColors(hsvSplitted, graphArea, distribColors, bgMask);
+        Mat maskColor;
+        getColors(hsvSplitted, graphArea, distribColors, maskColor, bgMask);
+        //// Classification des arêtes
         //sortEdges(edgesPicture,hsvPicture, graphArea, distribColors,
         //    edgeClusterIndices, {distribBg, distribLines});
 
-        /// Extraction des traits
+        //// Extraction des traits
         //getStrokes(edgeClusterIndices, distribColors, strokes);
+
+        /// Détection des courbes
+        vector<vector<Point>> detectedCurves;
+        //detectCurves(maskColor, distribColors, detectedCurves);
+        detectCurves(hsvSplitted, bgMask, distribColors, detectedCurves);
+
 
         /****************************
         //  VECTORISATION

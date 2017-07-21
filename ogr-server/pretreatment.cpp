@@ -243,7 +243,12 @@ namespace ogr{
 
     void filterQuad(vector<Vec4i> horizontales, vector<Vec4i> verticales, int threshold,
         vector<Vec4i> &horFiltered, vector<Vec4i> &verFiltered){
-
+        /// Plusieurs métriques sont retenues pour déterminer la probabilité
+        ///     Loc: sur une distribution MAD, position min de la ligne
+        ///     CoLoc: sur une distribution MAD, position max de la ligne
+        ///     Length: sur une distribution normale, position
+        ///     Pos
+        ///     Width
         vector<Vec4d> horP, verP;
 
         lines2Prob(horizontales, horP);

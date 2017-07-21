@@ -202,8 +202,11 @@ namespace ogr{
     *               (vector<gaussian3>) liste des distributions exclues (optionnel)
     *       return: (void)
     */
-    void getColors(Mat hsvSplitted[], Rect graphArea, vector<gaussianCurve> &distribColors, Mat bgMask);
+    //void getColors(Mat hsvSplitted[], Rect graphArea, vector<gaussianCurve> &distribColors, Mat bgMask);
+    void getColors(Mat hsvPic[], Rect graphArea,
+        vector<gaussianCurve> &distribColors, Mat &maskColor, Mat mask);
 
+    void detectCurves(Mat hsv[], Mat maskColor, vector<gaussianCurve> distribColors, vector<vector<Point>> &detectedCurves);
     /** HISTO2MAD
     *       convertit un histogramme en distribution autour de la médiane à déviation absolue (MAD)
     *       params: (int[]) histogramme 256
