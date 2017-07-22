@@ -16,6 +16,7 @@ namespace ogr{
         vector<Vec3i> horEdges, verEdges;
         vector<gaussianCurve> distribColors;
         vector<Point> intersects;
+        Size picSize;
         //vector<stroke> strokes;
 
         /****************************
@@ -30,7 +31,7 @@ namespace ogr{
             return result;
         }
         /// Affichage des informations à traiter
-        pictureDimension = bgrPicture.size();
+        picSize = bgrPicture.size();
         if(DEBUG){
             imshow("Image initiale", bgrPicture);
         }
@@ -44,15 +45,15 @@ namespace ogr{
 
         /// Détection des lignes
         getEdgeLines(edgesPicture, edgeLines);
-        sortLinesByOrientat(edgeLines, horEdges, verEdges);
-        getIntegratLines(horEdges, pictureDimension.height-1, horizontales);
-        getIntegratLines(verEdges, pictureDimension.width-1, verticales);
+        sortLinesByOrientat(edgeLines, picSize, horEdges, verEdges);
+        getIntegratLines(horEdges, picSize.height-1, picSize, horizontales);
+/*        getIntegratLines(verEdges, picSize.width-1, picSize, verticales);
 
         /// Définition de la zone de travail
         getIntersect(horizontales, verticales, intersects);
         //sortIntersectByColor(intersects, hsvSplitted, horizontales, verticales, quadIntersects);
-        getGraphArea(intersects, horizontales, verticales, graphArea);
-
+        getGraphArea(intersects, picSize, horizontales, verticales, graphArea);
+*/
         //getGraphArea(horizontales, verticales, hsvSplitted[2], graphArea);
 
         /****************************

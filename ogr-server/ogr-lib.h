@@ -19,7 +19,8 @@ namespace ogr{
     *       DEBUG flag d'affichage des données de traitement
     */
     const bool DEBUG = true;
-    Size pictureDimension;
+    //extern Size picDims;
+    //Size picSize = Size();
 
     /** STRUCTURES DE NAMESPACE
     *       SPLINECUBIC définit la portion interpolée d'une courbe et ses coefficients
@@ -147,7 +148,7 @@ namespace ogr{
     *               (vector<Vec2i>) vecteur des verticales
     *       return: (void)
     */
-    void sortLinesByOrientat(vector<Vec4i> lines, vector<Vec3i> &horizontales,
+    void sortLinesByOrientat(vector<Vec4i> lines, Size, vector<Vec3i> &horizontales,
         vector<Vec3i> &verticales);
     /** LINEDGE2LINQUAD
     *       regroupe des lignes d'arêtes en lignes de quadrillage
@@ -157,7 +158,7 @@ namespace ogr{
     *               (int) largeur de recherche pour la ligne
     *       return: (void)
     */
-    void getIntegratLines(vector<Vec3i>, int, vector<Vec4i>&);
+    void getIntegratLines(vector<Vec3i>, int, Size, vector<Vec4i>&);
 
     void getIntersect(vector<Vec4i> horizontales, vector<Vec4i> verticales, vector<Point>&intersects);
 
@@ -186,7 +187,7 @@ namespace ogr{
     *       return: (void)
     */
     //void getGraphArea(vector<Vec4i> horizontales, vector<Vec4i> verticales, Mat greyPic, Rect &zone);
-    void getGraphArea(vector<Point> intersects, vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect &zone);
+    void getGraphArea(vector<Point> intersects, Size, vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect &zone);
 
     void filterQuad(vector<Vec4i> horizontales, vector<Vec4i> verticales, int threshold,
         vector<Vec4i> &horFiltered, vector<Vec4i> &verFiltered);

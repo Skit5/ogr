@@ -5,8 +5,6 @@ namespace ogr{
     /****************************
     //  DETECTION DES ARÊTES
     ****************************/
-    //string file="graph5.jpg";
-
     void getEdges(Mat greyPicture, Mat &detectedEdges){
         int lowThreshold=62, highThreshold=137; /// Valeurs optimisées
         vector<param2optimize> params{
@@ -20,7 +18,7 @@ namespace ogr{
             getHistogram(greyPicture, histo);
 
             double maxVal=0, valMax=0, medVal=-1, valMed=0, sum=0,
-            picSize = greyPicture.cols*greyPicture.rows, lowVal=-1, highVal=-1;
+            picArea = greyPicture.cols*greyPicture.rows, lowVal=-1, highVal=-1;
             for(int k=0; k<256; ++k){
                 if(histo[k]>maxVal){
                     maxVal = histo[k];
@@ -28,13 +26,13 @@ namespace ogr{
                 }
                 sum += histo[k];
 
-                if(sum>=0.2*picSize && lowVal==-1)
+                if(sum>=0.2*picArea && lowVal==-1)
                     lowVal = k;
-                if(sum>=picSize/2 && medVal==-1){
+                if(sum>=picArea/2 && medVal==-1){
                     medVal = sum;
                     valMed = k;
                 }
-                if(sum>=0.8*picSize && highVal==-1)
+                if(sum>=0.8*picArea && highVal==-1)
                     highVal = k;
             }
             gaussianCurve histoDistrib = histo2gaussian(histo);
@@ -47,7 +45,6 @@ namespace ogr{
 
         optimizer(params, [=, &detectedEdges]()->Mat{
             Canny(greyPicture, detectedEdges, *(params[0].paramAddress), *(params[1].paramAddress), 3);
-            //imwrite("edges-"+file,detectedEdges);
             return detectedEdges;
         });
         return;
@@ -77,7 +74,8 @@ namespace ogr{
     gaussianCurve histo2gaussian(double histogram[]){
         gaussianCurve currentCurve = {0,0};
         double sum = 0, weightedSum = 0, varianceWeightedSum = 0;
-        int histoSize = sizeof(histogram)/sizeof(double);
+        //int histoSize = sizeof(histogram)/sizeof(double);
+        int histoSize = 256;
 
         for(int l=0; l<histoSize; ++l){
             sum += histogram[l];
@@ -104,6 +102,9 @@ namespace ogr{
 
         optimizer(params, [=, &lines]()->Mat{
             Mat detectedLines;
+            /*if(DEBUG)
+                detectedLines = Mat::zeros(picSize,CV_8UC3);
+                */
 
             HoughLinesP(edgedPicture, lines, 1, CV_PI/180, *(params[0].paramAddress),
                 (double)*(params[1].paramAddress), (double)*(params[2].paramAddress));
@@ -122,17 +123,16 @@ namespace ogr{
         return;
     }
 
-    void sortLinesByOrientat(vector<Vec4i> lines, vector<Vec3i> &horizontales,
+    void sortLinesByOrientat(vector<Vec4i> lines, Size picSize, vector<Vec3i> &horizontales,
         vector<Vec3i> &verticales){
         int alignementErr = 3;
         vector<param2optimize> params{
             {&alignementErr,"AlignmentError",100}
         };
-
         optimizer(params, [=, &horizontales, &verticales]()->Mat{
             Mat sortedLines;
             if(DEBUG)
-                sortedLines = Mat::zeros(pictureDimension,CV_8UC3);
+                sortedLines = Mat::zeros(picSize,CV_8UC3);
 
             for( size_t i = 0; i < lines.size(); i++){
                 Vec4i l = lines[i];
@@ -161,13 +161,14 @@ namespace ogr{
                             Scalar(125,125,0), 2, CV_AA);
                 }
             }
+            //cout<<"prout"<<endl;
             return sortedLines;
         });
 
         return;
     }
 
-    void getIntegratLines(vector<Vec3i> inputHisto, int maxPos, vector<Vec4i> &outputHisto){
+    void getIntegratLines(vector<Vec3i> inputHisto, int maxPos, Size picSize, vector<Vec4i> &outputHisto){
         int lengthErr=10, histoErr=4;
         vector<param2optimize> params{
             {&histoErr,"LinesMargin",100},
@@ -180,8 +181,8 @@ namespace ogr{
         optimizer(params, [=, &outputHisto]()->Mat{
             Mat intLines;
             if(DEBUG)
-                intLines = Mat::zeros(pictureDimension,CV_8UC3);
-
+                intLines = Mat::zeros(picSize,CV_8UC3);
+            cout<<"start integrate lines"<<endl;
             for(size_t i=0; i<inputHisto.size(); ++i){
                 int _pos = inputHisto[i][0], pos = _pos;
                 vector<Vec3i> edgeBuffer;
@@ -203,6 +204,7 @@ namespace ogr{
                     sort(fragBuffer.begin(), fragBuffer.end(),[](Vec3i a, Vec3i b){
                         return (a[1]<b[1]);
                     });
+                    cout<<i<<endl;
                     double edgeDensity = 0, maxLength = coLoc-loc;
                     do{ /// Si la densité de l'arete ne convient pas, on la réduit plutôt que de la rejeter
                         double edgeDensity = 0, maxLength = coLoc-loc;
@@ -256,7 +258,7 @@ namespace ogr{
                 for(int i=0; i<inputHisto.size(); ++i){
                     Vec3i h = inputHisto[i];
                     Point a,b;
-                    if(maxPos+1 == pictureDimension.width){
+                    if(maxPos+1 == picSize.width){
                         a = Point(h[0],h[1]);
                         b = Point(h[0],h[2]);
                     }else{
@@ -268,7 +270,7 @@ namespace ogr{
                 for(int i=0; i<outputHisto.size(); ++i){
                     Vec4i h = outputHisto[i];
                     Point a,b;
-                    if(maxPos+1 == pictureDimension.width){
+                    if(maxPos+1 == picSize.width){
                         a = Point(h[0],h[1]);
                         b = Point(h[0],h[2]);
                     }else{
@@ -410,8 +412,9 @@ namespace ogr{
     //  DETECTION DE LA ZONE
     ****************************/
 
-    void getGraphArea(vector<Point> intersects, vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect &zone){
-            Point center(pictureDimension.width/2,pictureDimension.height/2);
+    void getGraphArea(vector<Point> intersects, vector<Vec4i> horizontales, vector<Vec4i> verticales, Size picSize, Rect &zone){
+            Point center(picSize.width/2,picSize.height/2);
+            Size picDims = picSize;
             int thresh=2;
             vector<param2optimize> params{
                 {&thresh,"LinProbThresh",1000}
@@ -419,7 +422,7 @@ namespace ogr{
             optimizer(params, [=, &zone]()->Mat{
                 Mat detectedZone;
                 if(DEBUG)
-                    detectedZone = Mat::zeros(pictureDimension,CV_8UC3);
+                    detectedZone = Mat::zeros(picDims,CV_8UC3);
                 vector<Vec4i> hors, vers;
 
                 filterQuad(horizontales, verticales, *(params[0].paramAddress), hors, vers);
