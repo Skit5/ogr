@@ -19,6 +19,7 @@ namespace ogr{
     *       DEBUG flag d'affichage des données de traitement
     */
     const bool DEBUG = true;
+    Size pictureDimension;
 
     /** STRUCTURES DE NAMESPACE
     *       SPLINECUBIC définit la portion interpolée d'une courbe et ses coefficients
@@ -83,12 +84,14 @@ namespace ogr{
     */
     vector<Vec4d> points2Splines(vector<Point>);
 
+
     /** GETEDGES
     *       extrait le masque des arêtes de l'image
     *       params: (Mat) image en niveaux de gris à analyser
     *       return: (Mat) image binarisée des bords des éléments de l'image
     */
-    Mat getEdges(Mat);
+    void getEdges(Mat, Mat&);
+
 
     /** GETLINES
     *       extrait les lignes vectorisées à partir des fragments de leurs arêtes
@@ -97,7 +100,7 @@ namespace ogr{
     *               (vector<Vec4i>) liste des verticales
     *       return: (void)
     */
-    void getLines(Mat, vector<Vec4i>&, vector<Vec4i>&);
+    void getEdgeLines(Mat, vector<Vec4i>&);
 
     /** GETCOLORMASKS
     *       extrait les masques des différentes couleurs de courbes
@@ -144,8 +147,8 @@ namespace ogr{
     *               (vector<Vec2i>) vecteur des verticales
     *       return: (void)
     */
-    void lineClassifier(vector<Vec4i>, int, vector<Vec2i>&, vector<Vec2i>&);
-
+    void sortLinesByOrientat(vector<Vec4i> lines, vector<Vec3i> &horizontales,
+        vector<Vec3i> &verticales);
     /** LINEDGE2LINQUAD
     *       regroupe des lignes d'arêtes en lignes de quadrillage
     *           fonctionne sur la projection des lignes
@@ -154,7 +157,10 @@ namespace ogr{
     *               (int) largeur de recherche pour la ligne
     *       return: (void)
     */
-    void linEdge2linQuad(vector<Vec2i>, vector<Vec4i> &, int);
+    void getIntegratLines(vector<Vec3i>, int, vector<Vec4i>&);
+
+    void getIntersect(vector<Vec4i> horizontales, vector<Vec4i> verticales, vector<Point>&intersects);
+
 
     /** HISTO2BORDERS
     *       récupération des extrémités des histogrammes
@@ -179,8 +185,8 @@ namespace ogr{
     *               (Rect)  retourne la zone du graphe
     *       return: (void)
     */
-    void getGraphArea(vector<Vec4i> horizontales, vector<Vec4i> verticales, Mat greyPic, Rect &zone);
-
+    //void getGraphArea(vector<Vec4i> horizontales, vector<Vec4i> verticales, Mat greyPic, Rect &zone);
+    void getGraphArea(vector<Point> intersects, vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect &zone);
 
     void filterQuad(vector<Vec4i> horizontales, vector<Vec4i> verticales, int threshold,
         vector<Vec4i> &horFiltered, vector<Vec4i> &verFiltered);

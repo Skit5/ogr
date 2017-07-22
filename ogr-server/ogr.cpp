@@ -12,12 +12,14 @@ namespace ogr{
             bgMask, edgeClusterIndices;
         Rect graphArea;
         vector<Mat> colorMasks;
-        vector<Vec4i> horizontales, verticales, strokes;
+        vector<Vec4i> horizontales, verticales, strokes, edgeLines;
+        vector<Vec3i> horEdges, verEdges;
         vector<gaussianCurve> distribColors;
+        vector<Point> intersects;
         //vector<stroke> strokes;
 
         /****************************
-        //  PRÉTRAITEMENT
+        //  DÉTECTION
         ****************************/
         /// Récupération de l'image format bgr
         try{
@@ -28,28 +30,36 @@ namespace ogr{
             return result;
         }
         /// Affichage des informations à traiter
+        pictureDimension = bgrPicture.size();
         if(DEBUG){
             imshow("Image initiale", bgrPicture);
         }
 
-        /// Extraction des calques hsv et gris
+        /// Extraction des calques hsv
         cvtColor(bgrPicture, hsvPicture, CV_BGR2HSV);
         split(hsvPicture,hsvSplitted);
 
-        /// Détection des bords
-        edgesPicture = getEdges(hsvSplitted[2]);
+        /// Détection des arêtes
+        getEdges(hsvSplitted[2], edgesPicture);
 
         /// Détection des lignes
-        getLines(edgesPicture, horizontales, verticales);
+        getEdgeLines(edgesPicture, edgeLines);
+        sortLinesByOrientat(edgeLines, horEdges, verEdges);
+        getIntegratLines(horEdges, pictureDimension.height-1, horizontales);
+        getIntegratLines(verEdges, pictureDimension.width-1, verticales);
 
         /// Définition de la zone de travail
-        getGraphArea(horizontales, verticales, hsvSplitted[2], graphArea);
+        getIntersect(horizontales, verticales, intersects);
+        //sortIntersectByColor(intersects, hsvSplitted, horizontales, verticales, quadIntersects);
+        getGraphArea(intersects, horizontales, verticales, graphArea);
+
+        //getGraphArea(horizontales, verticales, hsvSplitted[2], graphArea);
 
         /****************************
         //  NETTOYAGE
         ****************************/
         /// Détection du masque de fond
-        getBgMask(hsvSplitted, bgMask, graphArea,verticales,horizontales);
+        //getBgMask(hsvSplitted, bgMask, graphArea,verticales,horizontales);
         /*gaussian3 distribBg = getMaxColor(hsvPicture, graphArea);
 
         /// Détection de la couleur du quadrillage
@@ -59,8 +69,8 @@ namespace ogr{
 
         /// Détection des couleurs
         //getColors(hsvSplitted, graphArea, distribColors, bgMask);
-        Mat maskColor;
-        getColors(hsvSplitted, graphArea, distribColors, maskColor, bgMask);
+        //Mat maskColor;
+        //getColors(hsvSplitted, graphArea, distribColors, maskColor, bgMask);
         //// Classification des arêtes
         //sortEdges(edgesPicture,hsvPicture, graphArea, distribColors,
         //    edgeClusterIndices, {distribBg, distribLines});
@@ -69,9 +79,9 @@ namespace ogr{
         //getStrokes(edgeClusterIndices, distribColors, strokes);
 
         /// Détection des courbes
-        vector<vector<Point>> detectedCurves;
+        //vector<vector<Point>> detectedCurves;
         //detectCurves(maskColor, distribColors, detectedCurves);
-        detectCurves(hsvSplitted, bgMask, distribColors, detectedCurves);
+        //detectCurves(hsvSplitted, bgMask, distribColors, detectedCurves);
 
 
         /****************************

@@ -523,7 +523,7 @@ namespace ogr{
             Mat curves;
 
             for(int c=0; c<distribColors.size(); ++c){ /// Pour chaque couleur identifiée
-                vector<vector<Point>> _dispersion;
+                vector<vector<int>> _dispersion;
                 double histDx[maskColor.cols] = {};
                 /// Pour chaque couleur, on récupère sur l'abscisse
                 ///     les positions des pixels
