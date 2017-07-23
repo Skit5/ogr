@@ -47,11 +47,12 @@ namespace ogr{
         getEdgeLines(edgesPicture, edgeLines);
         sortLinesByOrientat(edgeLines, picSize, horEdges, verEdges);
         getIntegratLines(horEdges, picSize.height-1, picSize, horizontales);
-/*        getIntegratLines(verEdges, picSize.width-1, picSize, verticales);
-
+        getIntegratLines(verEdges, picSize.width-1, picSize, verticales);
         /// Définition de la zone de travail
         getIntersect(horizontales, verticales, intersects);
-        //sortIntersectByColor(intersects, hsvSplitted, horizontales, verticales, quadIntersects);
+        cout<<intersects.size()<<endl;
+
+/*        //sortIntersectByColor(intersects, hsvSplitted, horizontales, verticales, quadIntersects);
         getGraphArea(intersects, picSize, horizontales, verticales, graphArea);
 */
         //getGraphArea(horizontales, verticales, hsvSplitted[2], graphArea);

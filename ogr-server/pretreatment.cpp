@@ -158,7 +158,7 @@ namespace ogr{
                     //obliques.push_back(l);
                     if(DEBUG)
                         line(sortedLines, Point(l[0], l[1]), Point(l[2], l[3]),
-                            Scalar(125,125,0), 2, CV_AA);
+                            Scalar(255,255,0), 2, CV_AA);
                 }
             }
             //cout<<"prout"<<endl;
@@ -169,6 +169,40 @@ namespace ogr{
     }
 
     void getIntegratLines(vector<Vec3i> inputHisto, int maxPos, Size picSize, vector<Vec4i> &outputHisto){
+        //////
+        //  getLine:
+        //      init outputBuffer
+        //      test the input size
+        //      sort lines by pos
+        //      init lineBuffer
+        //      init current pos on first item
+        //      for each item in lines
+        //          getEdge:
+        //              init edgeBuffer
+        //              add item to edgeBuffer
+        //              while next item is in same pos
+        //                  increment item
+        //                  add it to edgeBuffer
+        //                  define max range on pos
+        //              sort edgeBuffer by loc
+        //              get density on max range
+        //              while density<error and edgeBuffer>1
+        //                      get the extrema points in edgeBuffer
+        //                      test the 1 point density of the extrema
+        //                      subtract the lower one
+        //                      update max range
+        //                      update density
+        //              add edge(pos,range) to lineBuffer
+        //          if current pos - next item pos > width || no next item
+        //              pos is average of lineBuffer
+        //              range is max of lineBuffer
+        //              width is the range of pos
+        //              add line(pos,range,width) to outputBuffer
+        //              reset lineBuffer
+        //              update pos to the next one
+        //////
+        if(inputHisto.size()<1)
+            return;
         int lengthErr=10, histoErr=4;
         vector<param2optimize> params{
             {&histoErr,"LinesMargin",100},
@@ -180,81 +214,93 @@ namespace ogr{
 
         optimizer(params, [=, &outputHisto]()->Mat{
             Mat intLines;
+            vector<Vec4i> _outHisto;
+            vector<Vec3i> lineBuffer;
+            int _pos = inputHisto[0][0];
             if(DEBUG)
                 intLines = Mat::zeros(picSize,CV_8UC3);
-            cout<<"start integrate lines"<<endl;
+
             for(size_t i=0; i<inputHisto.size(); ++i){
-                int _pos = inputHisto[i][0], pos = _pos;
+                /// La première étape est de rassembler
+                /// les fragments par arête
                 vector<Vec3i> edgeBuffer;
-                do{ /// On regroupe autour de la marge d'erreur sur la dispersion
-                    int loc = inputHisto[i][1], coLoc = inputHisto[i][2];
-                    pos = inputHisto[i][0];
-                    /// On regroupe les fragments par position
-                    /// On commence par tous les analyser
-                    vector<Vec3i> fragBuffer;
-                    while(inputHisto[i][0] == pos && i < inputHisto.size()){
-                        fragBuffer.push_back(inputHisto[i]);
-                        loc = min(inputHisto[i][1],loc);
-                        coLoc = max(inputHisto[i][2],coLoc);
-                        ++i;
-                    }
-                    //--i;
-                    /// On trie les fragments par location croissante pour faciliter
-                    /// le raccourcissement de la ligne jusqu'à la densité voulue
-                    sort(fragBuffer.begin(), fragBuffer.end(),[](Vec3i a, Vec3i b){
-                        return (a[1]<b[1]);
-                    });
-                    cout<<i<<endl;
-                    double edgeDensity = 0, maxLength = coLoc-loc;
-                    do{ /// Si la densité de l'arete ne convient pas, on la réduit plutôt que de la rejeter
-                        double edgeDensity = 0, maxLength = coLoc-loc;
-                        maxLength = coLoc-loc;
-                        for(int j=0; j<edgeBuffer.size(); ++j){
-                            edgeDensity += edgeBuffer[j][2]-edgeBuffer[j][1];
-                        }
-                        /// On détermine la densité des fragments sur la ligne
-                        edgeDensity = edgeDensity / maxLength;
-
-                        if(edgeDensity < *(params[1].paramAddress)/100){ /// Test d'erreur sur la densité du buffer
-                            int n = fragBuffer.size()-1;
-                            double _densityLoc = fragBuffer[0][2]-fragBuffer[0][1] / fragBuffer[1][1]-fragBuffer[0][1],
-                                _densityCoLoc = fragBuffer[n][2]-fragBuffer[n][1] / fragBuffer[n][2]-fragBuffer[n-1][2];
-                            if(_densityLoc > _densityCoLoc){
-                                    coLoc = fragBuffer[n-1][2];
-                                    fragBuffer.erase(fragBuffer.begin()+n);
-                            }else{
-                                    loc = fragBuffer[1][1];
-                                    fragBuffer.erase(fragBuffer.begin());
-                            }
-                        }else{  /// Sinon, la densité est suffisante et la ligne est ajoutée au buffer
-                            edgeBuffer.push_back(Vec3i(pos,loc,coLoc));
-                    }}while(edgeDensity < *(params[1].paramAddress)/100 || fragBuffer.size()>1);
-
-                }while(pos <= min(maxPos,_pos + *(params[0].paramAddress)));
-
-                /// On transforme nos arêtes récoltées sur ce voisinage en lignes
-                ///     On utilisera la position moyenne
-                ///     Les loc et coLoc les plus extrêmes
-                ///     La bande comme épaisseur
-                int lLoc = maxPos, lCoLoc = 0, lPosSum = 0;
-                for(int k=0; k<edgeBuffer.size(); ++k){
-                    Vec3i e = edgeBuffer[k];
-                    lPosSum += e[0];
-                    lLoc = min(lLoc, e[1]);
-                    lCoLoc = max(lCoLoc, e[2]);
+                Vec3i h = inputHisto[i];
+                int pos = h[0], loc = h[1], coLoc = h[2];
+                edgeBuffer.push_back(h);
+                /// On regroupe les fragments par position
+                /// On commence par tous les analyser
+                while(inputHisto[i+1][0] == pos && i+1 < inputHisto.size()){
+                    ++i;
+                    edgeBuffer.push_back(inputHisto[i]);
+                    loc = min(inputHisto[i][1],loc);
+                    coLoc = max(inputHisto[i][2],coLoc);
                 }
+                /// On trie les fragments par location croissante pour faciliter
+                /// le raccourcissement de la ligne jusqu'à la densité voulue
+                sort(edgeBuffer.begin(), edgeBuffer.end(),[](Vec3i a, Vec3i b){
+                    return (a[1]<b[1]);
+                });
+                double edgeSum = 0, edgeDensity = 0, maxLength = coLoc-loc;
+                for(int j=0; j<edgeBuffer.size(); ++j){
+                    edgeSum += edgeBuffer[j][2] - edgeBuffer[j][1];
+                }
+                /// On détermine la densité des fragments sur la ligne
+                edgeDensity = edgeSum / maxLength;
+                /// Si la densité de l'arete ne convient pas, on réduit l'arête plutôt que de la rejeter
+                while(edgeDensity < (double)(100-*(params[1].paramAddress))/100 && edgeBuffer.size()>1){
+                    int n = edgeBuffer.size()-1;
+                    double _densityLoc = edgeBuffer[0][2]-edgeBuffer[0][1] / edgeBuffer[1][1]-edgeBuffer[0][1],
+                        _densityCoLoc = edgeBuffer[n][2]-edgeBuffer[n][1] / edgeBuffer[n][2]-edgeBuffer[n-1][2];
+                    /// Suppression de l'extrema de moindre densité
+                    if(_densityLoc > _densityCoLoc){
+                            coLoc = edgeBuffer[n-1][2];
+                            edgeSum -= edgeBuffer[n][2] - edgeBuffer[n][1];
+                            edgeBuffer.erase(edgeBuffer.begin()+n);
+                    }else{
+                            loc = edgeBuffer[1][1];
+                            edgeSum -= edgeBuffer[0][2] - edgeBuffer[0][1];
+                            edgeBuffer.erase(edgeBuffer.begin());
+                    }
+                    /// Mise à jour de la densité de l'arête
+                    maxLength = coLoc - loc;
+                    edgeDensity = edgeSum / maxLength;
+                }
+                lineBuffer.push_back(Vec3i(pos,loc,coLoc));
 
-                outputHisto.push_back(Vec4i(
-                    lPosSum / edgeBuffer.size(),
-                    lLoc,
-                    lCoLoc,
-                    edgeBuffer[edgeBuffer.size()-1][0]-edgeBuffer[0][0]+1
-                ));
+                /// On convertit le lineBuffer en ligne
+                if(i+1 == inputHisto.size()
+                    || inputHisto[i+1][0]-_pos > *(params[0].paramAddress)){
+                    /// On transforme nos arêtes récoltées sur ce voisinage en lignes
+                    ///     On utilisera la position moyenne
+                    ///     Les loc et coLoc les plus extrêmes
+                    ///     La bande comme épaisseur
+                    int lLoc = lineBuffer[0][1], lCoLoc = lineBuffer[0][2];
+                    double lPosSum = 0;
+                    for(auto l = lineBuffer.begin(); l!=lineBuffer.end(); ++l){
+                        lPosSum += (*l)[0];
+                        lLoc = min(lLoc, (*l)[1]);
+                        lCoLoc = max(lCoLoc, (*l)[2]);
+                    }
+                    Vec4i _addable = {
+                        round(lPosSum / lineBuffer.size()),
+                        lLoc,
+                        lCoLoc,
+                        lineBuffer[lineBuffer.size()-1][0]-lineBuffer[0][0]+1
+                    };
+                    _outHisto.push_back(_addable);
+                    lineBuffer = {};
+                    if(i+1 < inputHisto.size())
+                        _pos = inputHisto[i+1][0];
+                }
             }
+
+            outputHisto = _outHisto;
 
             /// Pour le debug, on affiche les lignes d'origines
             /// comparées aux lignes intégrées
             if(DEBUG){
+                cout<<"== Integration des lignes =="<<endl
+                    <<"Ratio de compression : "<<(double)outputHisto.size()/inputHisto.size()<<endl;
                 for(int i=0; i<inputHisto.size(); ++i){
                     Vec3i h = inputHisto[i];
                     Point a,b;
@@ -267,8 +313,8 @@ namespace ogr{
                     }
                     line( intLines, a, b, Scalar(120,120,10), 2, CV_AA);
                 }
-                for(int i=0; i<outputHisto.size(); ++i){
-                    Vec4i h = outputHisto[i];
+                for(int i=0; i<_outHisto.size(); ++i){
+                    Vec4i h = _outHisto[i];
                     Point a,b;
                     if(maxPos+1 == picSize.width){
                         a = Point(h[0],h[1]);
@@ -280,8 +326,10 @@ namespace ogr{
                     line( intLines, a, b, Scalar(0,0,200), h[3], CV_AA);
                 }
             }
+
             return intLines;
         });
+
 
         return;
     }
@@ -298,6 +346,7 @@ namespace ogr{
                     _inters.push_back(Point(v[0],h[0]));
             }
         }
+                //cout<<verticales.size()<<" "<<horizontales.size()<<endl;
         intersects = _inters;
         return;
     }
