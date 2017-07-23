@@ -50,11 +50,9 @@ namespace ogr{
         getIntegratLines(verEdges, picSize.width-1, picSize, verticales);
         /// Définition de la zone de travail
         getIntersect(horizontales, verticales, intersects);
-        cout<<intersects.size()<<endl;
-
-/*        //sortIntersectByColor(intersects, hsvSplitted, horizontales, verticales, quadIntersects);
+        //sortIntersectByColor(intersects, hsvSplitted, horizontales, verticales, quadIntersects);
         getGraphArea(intersects, picSize, horizontales, verticales, graphArea);
-*/
+
         //getGraphArea(horizontales, verticales, hsvSplitted[2], graphArea);
 
         /****************************

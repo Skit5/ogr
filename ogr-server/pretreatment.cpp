@@ -13,7 +13,7 @@ namespace ogr{
         };
 
         if(DEBUG){
-            cout<<"== Picture analysis =="<<endl;
+            cout<<"== Analyse de l'image =="<<endl;
             double histo[256] = {};
             getHistogram(greyPicture, histo);
 
@@ -336,17 +336,21 @@ namespace ogr{
 
 
     void getIntersect(vector<Vec4i> horizontales, vector<Vec4i> verticales, vector<Point>&intersects){
+        if(horizontales.size() == 0 || verticales.size() == 0)
+            return;
         vector<Point> _inters;
         for(int i=0; i<verticales.size(); ++i){
             Vec4i v = verticales[i];
-            for(int j=0; i<horizontales.size(); ++j){
+            for(int j=0; j<horizontales.size(); ++j){
                 Vec4i h = horizontales[j];
-                if( h[0] >= v[1]-(v[3]/2)
-                    && h[0]<=v[2]+(v[3]/2))
+                if( h[0] >= v[1]-round(v[3]/2)
+                    && h[0]<= v[2]+round(v[3]/2))
                     _inters.push_back(Point(v[0],h[0]));
             }
         }
-                //cout<<verticales.size()<<" "<<horizontales.size()<<endl;
+        if(DEBUG)
+            cout<<"== Détection des intersections =="<<endl
+                <<"Nombre d'intersections : "<<_inters.size()<<endl;
         intersects = _inters;
         return;
     }
