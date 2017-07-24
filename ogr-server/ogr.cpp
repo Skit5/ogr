@@ -7,8 +7,8 @@ namespace ogr{
         //  VARIABLES
         ****************************/
         extractedGraph result;
-        Mat bgrPicture, edgesPicture,
-            hsvPicture, hsvSplitted[3],
+        Mat bgrPicture, edgesPicture, noQuadEdges,
+            hsvPicture, hsvSplitted[3], maskColor,
             bgMask, edgeClusterIndices;
         Rect graphArea;
         vector<Mat> colorMasks;
@@ -46,8 +46,8 @@ namespace ogr{
         /// Détection des lignes
         getEdgeLines(edgesPicture, edgeLines);
         sortLinesByOrientat(edgeLines, picSize, horEdges, verEdges);
-        getIntegratLines(horEdges, picSize.height-1, picSize, horizontales);
-        getIntegratLines(verEdges, picSize.width-1, picSize, verticales);
+        getIntegratLines(horEdges, picSize, picSize.height-1, horizontales);
+        getIntegratLines(verEdges, picSize, picSize.width-1, verticales);
         /// Définition de la zone de travail
         getIntersect(horizontales, verticales, intersects);
         //sortIntersectByColor(intersects, hsvSplitted, horizontales, verticales, quadIntersects);
@@ -58,8 +58,10 @@ namespace ogr{
         /****************************
         //  NETTOYAGE
         ****************************/
-        /// Détection du masque de fond
-        //getBgMask(hsvSplitted, bgMask, graphArea,verticales,horizontales);
+
+        /// Extraction du masque de fond
+        ///     et nettoyage du masque des arêtes
+        getBgMask(hsvSplitted, edgesPicture, bgMask, noQuadEdges, graphArea, verticales, horizontales);
         /*gaussian3 distribBg = getMaxColor(hsvPicture, graphArea);
 
         /// Détection de la couleur du quadrillage
@@ -70,13 +72,15 @@ namespace ogr{
         /// Détection des couleurs
         //getColors(hsvSplitted, graphArea, distribColors, bgMask);
         //Mat maskColor;
-        //getColors(hsvSplitted, graphArea, distribColors, maskColor, bgMask);
+        getColors(hsvSplitted, graphArea, distribColors, maskColor, bgMask);
         //// Classification des arêtes
         //sortEdges(edgesPicture,hsvPicture, graphArea, distribColors,
         //    edgeClusterIndices, {distribBg, distribLines});
 
         //// Extraction des traits
         //getStrokes(edgeClusterIndices, distribColors, strokes);
+
+        /// Trier les arêtes par couleur
 
         /// Détection des courbes
         //vector<vector<Point>> detectedCurves;

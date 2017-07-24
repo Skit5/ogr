@@ -102,21 +102,23 @@ namespace ogr{
 
         optimizer(params, [=, &lines]()->Mat{
             Mat detectedLines;
+            vector<Vec4i> _lines;
             /*if(DEBUG)
                 detectedLines = Mat::zeros(picSize,CV_8UC3);
                 */
 
-            HoughLinesP(edgedPicture, lines, 1, CV_PI/180, *(params[0].paramAddress),
+            HoughLinesP(edgedPicture, _lines, 1, CV_PI/180, *(params[0].paramAddress),
                 (double)*(params[1].paramAddress), (double)*(params[2].paramAddress));
 
             /// En mode debug, on va traiter l'affichage des lignes
             if(DEBUG){
                 cvtColor(edgedPicture,detectedLines,CV_GRAY2BGR);
-                for(size_t i=0; i<lines.size(); ++i){
-                    Vec4i l = lines[i];
+                for(size_t i=0; i<_lines.size(); ++i){
+                    Vec4i l = _lines[i];
                     line(detectedLines, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 2, CV_AA);
                 }
             }
+            lines = _lines;
             return detectedLines;
         });
 
@@ -168,7 +170,7 @@ namespace ogr{
         return;
     }
 
-    void getIntegratLines(vector<Vec3i> inputHisto, int maxPos, Size picSize, vector<Vec4i> &outputHisto){
+    void getIntegratLines(vector<Vec3i> inputHisto, Size picSize, int maxPos, vector<Vec4i> &outputHisto){
         //////
         //  getLine:
         //      init outputBuffer
@@ -355,120 +357,13 @@ namespace ogr{
         return;
     }
 
-
-/*
-
-
-    void getLines(Mat edgedPicture, vector<Vec4i> &fullHor, vector<Vec4i> &fullVer){
-
-
-
-     for( size_t i = 0; i < lines.size(); i++ ){
-                Vec4i l = lines[i];
-                if(abs(l[0]-l[2])<= errAlign){/// verticale si dX petit
-                    int Pos = round((l[0]+l[2])/2),
-                        loc=min(l[1],l[3]),coLoc=max(l[1],l[3]);
-                    if((verticales[Pos][0]+verticales[Pos][1]) > 0){
-                        loc = min(loc, verticales[Pos][0]);
-                        coLoc = max(coLoc, verticales[Pos][1]);
-                    }
-                    verticales[Pos] = {loc, coLoc};
-                }
-                if(abs(l[1]-l[3])<= errAlign){/// horizontale si dY petit
-                    int Pos = round((l[1]+l[3])/2),
-                        loc=min(l[0],l[2]),coLoc=max(l[0],l[2]);
-                    if((horizontales[Pos][0]+horizontales[Pos][1]) > 0){
-                        loc = min(loc, horizontales[Pos][0]);
-                        coLoc = max(coLoc, horizontales[Pos][1]);
-                    }
-                    horizontales[Pos] = {loc, coLoc};
-                }
-            }
-
-
-            vector<Vec2i> horizontales(edgedPicture.rows), verticales(edgedPicture.cols);
-            Mat detectedLines;
-            vector<Vec4i> lines;
-
-            HoughLinesP(edgedPicture, lines, 1, CV_PI/180, *(params[1].paramAddress),
-                (double)*(params[2].paramAddress), (double)*(params[3].paramAddress));
-            lineClassifier(lines,*(params[4].paramAddress),horizontales,verticales);
-            if(DEBUG)
-                cout<<"== Ver(X cst) =="<<endl;
-            linEdge2linQuad(verticales, fullVer, *(params[0].paramAddress));
-            if(DEBUG)
-                cout<<"== Hor(Y cst) =="<<endl;
-            linEdge2linQuad(horizontales, fullHor, *(params[0].paramAddress));
-
-            /// En mode debug, on va traiter l'affichage des lignes
-            if(DEBUG){
-                cvtColor(edgedPicture,detectedLines,CV_GRAY2BGR);
-                for( size_t i = 0; i < fullHor.size(); i++ ){
-                    line( detectedLines, Point(fullHor[i][1], fullHor[i][0]), Point(fullHor[i][2], fullHor[i][0]),
-                        Scalar(0,255,0), fullHor[i][3], CV_AA);
-                }
-                for( size_t i = 0; i < fullVer.size(); i++ ){
-                    line( detectedLines, Point(fullVer[i][0], fullVer[i][1]), Point(fullVer[i][0], fullVer[i][2]),
-                        Scalar(255,0,0), fullVer[i][3], CV_AA);
-                }
-            }
-            //imwrite("lines-"+file,detectedLines);
-
-
-
-        int thresh=55, alignementErr=3, histoErr=4,
-            minLineLength=60, maxLineGap=8, maxLine=max(edgedPicture.cols,edgedPicture.rows);
-        vector<param2optimize> params{
-            {&histoErr,"LinesMargin",100},
-            {&thresh,"Threshold",maxLine},
-            {&minLineLength,"MinLineLength",maxLine},
-            {&maxLineGap,"MaxLineGap",maxLine},
-            {&alignementErr,"AlignmentError",100}
-        };
-
-        optimizer(params, [=, &fullHor, &fullVer]()->Mat{
-            vector<Vec2i> horizontales(edgedPicture.rows), verticales(edgedPicture.cols);
-            Mat detectedLines;
-            vector<Vec4i> lines;
-
-            HoughLinesP(edgedPicture, lines, 1, CV_PI/180, *(params[1].paramAddress),
-                (double)*(params[2].paramAddress), (double)*(params[3].paramAddress));
-            lineClassifier(lines,*(params[4].paramAddress),horizontales,verticales);
-            if(DEBUG)
-                cout<<"== Ver(X cst) =="<<endl;
-            linEdge2linQuad(verticales, fullVer, *(params[0].paramAddress));
-            if(DEBUG)
-                cout<<"== Hor(Y cst) =="<<endl;
-            linEdge2linQuad(horizontales, fullHor, *(params[0].paramAddress));
-
-            /// En mode debug, on va traiter l'affichage des lignes
-            if(DEBUG){
-                cvtColor(edgedPicture,detectedLines,CV_GRAY2BGR);
-                for( size_t i = 0; i < fullHor.size(); i++ ){
-                    line( detectedLines, Point(fullHor[i][1], fullHor[i][0]), Point(fullHor[i][2], fullHor[i][0]),
-                        Scalar(0,255,0), fullHor[i][3], CV_AA);
-                }
-                for( size_t i = 0; i < fullVer.size(); i++ ){
-                    line( detectedLines, Point(fullVer[i][0], fullVer[i][1]), Point(fullVer[i][0], fullVer[i][2]),
-                        Scalar(255,0,0), fullVer[i][3], CV_AA);
-                }
-            }
-            //imwrite("lines-"+file,detectedLines);
-            return detectedLines;
-        });
-
-        return;
-    }
-
-*/
     /****************************
     //  DETECTION DE LA ZONE
     ****************************/
-
-    void getGraphArea(vector<Point> intersects, vector<Vec4i> horizontales, vector<Vec4i> verticales, Size picSize, Rect &zone){
+    void getGraphArea(vector<Point> intersects, Size picSize, vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect &zone){
             Point center(picSize.width/2,picSize.height/2);
             Size picDims = picSize;
-            int thresh=2;
+            int thresh=18;
             vector<param2optimize> params{
                 {&thresh,"LinProbThresh",1000}
             };

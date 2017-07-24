@@ -158,7 +158,7 @@ namespace ogr{
     *               (int) largeur de recherche pour la ligne
     *       return: (void)
     */
-    void getIntegratLines(vector<Vec3i>, int, Size, vector<Vec4i>&);
+    void getIntegratLines(vector<Vec3i>, Size, int, vector<Vec4i>&);
 
     void getIntersect(vector<Vec4i> horizontales, vector<Vec4i> verticales, vector<Point>&intersects);
 
@@ -198,7 +198,7 @@ namespace ogr{
 
     /****** NETTOYAGE ******/
 
-    void getBgMask(Mat hsvSplitted[], Mat &bgMask, Rect graphArea,
+    void getBgMask(Mat hsvSplitted[], Mat, Mat &bgMask, Mat&, Rect graphArea,
         vector<Vec4i> verticales, vector<Vec4i> horizontales);
 
     /** GETCOLORS

@@ -5,7 +5,7 @@ namespace ogr{
     /****************************
     //  NETTOYAGE DU FOND
     ****************************/
-    void getBgMask(Mat hsvSplitted[], Mat &mask, Rect zone,
+    void getBgMask(Mat hsvSplitted[], Mat edgeMask, Mat &mask, Mat &edgeCleanMask, Rect zone,
         vector<Vec4i> vers, vector<Vec4i> hors){
         int thresh = 6, scale = 2, margin = 50, threshSV = 40;
         vector<param2optimize> params{
@@ -14,11 +14,17 @@ namespace ogr{
             {&scale,"ScaleRatio",10},
             {&threshSV,"SVThreshold",100}
         };
-        optimizer(params, [=, &mask]()->Mat{
+        optimizer(params, [=, &mask, &edgeCleanMask]()->Mat{
             int maxId = -1;
             int k = (*(params[2].paramAddress)<1)? 1: *(params[2].paramAddress);
             Mat picZone(hsvSplitted[2], zone), shrinkedPicZone;
+            Mat edgeCleanMask(edgeMask.clone());
             mask = Mat::zeros(hsvSplitted[2].size(),hsvSplitted[2].type());
+
+            if(DEBUG){
+                cout<<"== Extraction du masque de fond =="<<endl
+                    <<"=== Détection de la couleur de fond ==="<<endl;
+            }
 
             /// On définit notre couleur de fond en prenant le maximum
             /// de l'histogramme en niveaux de gris
@@ -60,10 +66,13 @@ namespace ogr{
                 ++rad;
             }
             --rad;
-            _maxSup = maxId + rad;
-            _maxInf = maxId - rad;
-            if(DEBUG)
-                cout<<"Bg range(grey) :["<<_maxInf<<" : "<<maxId<<" : "<<_maxSup<<" ]"<<endl;
+            _maxSup = min(maxId + rad, 255);
+            _maxInf = max(maxId - rad, 0);
+            if(DEBUG){
+                cout<<"Bg range(grey) :["<<_maxInf<<" : "<<maxId<<" : "<<_maxSup<<" ]"<<endl
+                    <<"=== Détection de la couleur de quadrillage ==="<<endl;
+            }
+
 
             /// On définit la distribution pour le quadrillage
             /// pour éviter que le spectre des courbes et du quadrillage
@@ -72,11 +81,14 @@ namespace ogr{
             for(int i=0; i<vers.size(); ++i){   /// Pour chaque verticale
                 if(vers[i][0]<=zone.x+zone.width && vers[i][0]>=zone.x){
                     for(int j=vers[i][1]; j<vers[i][2]; ++j){   /// Pour chaque longueur
-                        for(int w=min(vers[i][0]-vers[i][3], zone.x); w<=max(vers[i][0]+vers[i][3], zone.x+zone.width); ++w){
+                        int _startP = max(round(vers[i][0]-vers[i][3]/2), round(zone.x)),
+                            _endP = min(round(_startP+vers[i][3]), round(zone.x+zone.width));
+                        for(int w=_startP; w<_endP; ++w){
                             /// Pour chaque point dans l'épaisseur
                             int locVal = hsvSplitted[2].at<uchar>(j,w);
                             if((locVal>_maxSup) || (locVal<_maxInf)){   /// Filtre de couleur de fond
                                 ++histoLines[locVal];
+                                //edgeCleanMask.at<uchar>(j,w) = 0x8F;
                             }
                         }
                     }
@@ -85,11 +97,14 @@ namespace ogr{
             for(int i=0; i<hors.size(); ++i){   /// Pour chaque horizontale
                 if(hors[i][0]>=zone.y && hors[i][0]<=zone.y+zone.height){
                     for(int j=hors[i][1]; j<hors[i][2]; ++j){   /// Pour chaque longueur
-                        for(int w=min(hors[i][0]-hors[i][3], zone.y); w<=max(hors[i][0]+hors[i][3], zone.y+zone.height); ++w){
+                        int _startP = max(round(hors[i][0]-hors[i][3]/2), round(zone.y)),
+                            _endP = min(round(_startP+hors[i][3]), round(zone.y+zone.height));
+                        for(int w=_startP; w<_endP; ++w){
                             /// Pour chaque point dans l'épaisseur
-                            int locVal = hsvSplitted[2].at<uchar>(w,i);
+                            int locVal = hsvSplitted[2].at<uchar>(w,j);
                             if((locVal>_maxSup) || (locVal<_maxInf)){   /// Filtre de couleur de fond
                                 ++histoLines[locVal];
+                                //edgeCleanMask.at<uchar>(w,j) = 0x8F;
                             }
                         }
                     }
@@ -100,11 +115,11 @@ namespace ogr{
             //imshow("echo s",hsvSplitted[1]);
             //imshow("echo v",hsvSplitted[2]);
 
-            gaussianCurve lineDistrib = histo2mad(histoLines);
+            gaussianCurve lineDistrib = histo2gaussian(histoLines);
             int _lineSup = lineDistrib.mean + lineDistrib.sigma;
             int _lineInf = lineDistrib.mean - lineDistrib.sigma;
             if(DEBUG)
-                cout<<"Lines range(S*V) :["<<_lineInf<<" : "<<lineDistrib.mean<<" : "<<_lineSup<<" ]"<<endl;
+                cout<<"Lines range(grey) :["<<_lineInf<<" : "<<lineDistrib.mean<<" : "<<_lineSup<<" ]"<<endl;
 
 
 
@@ -129,32 +144,42 @@ namespace ogr{
                 }
             }
             for(int i=0; i<hors.size(); ++i){   /// Pour chaque horizontale
-                if(hors[i][0]>=zone.y && hors[i][0]<=zone.y+zone.height){
+                if(hors[i][0]>=zone.y && hors[i][0]<zone.y+zone.height){
                     for(int j=zone.x; j<zone.x+zone.width; ++j){   /// Pour chaque largeur
-                        for(int w=min(hors[i][0]-hors[i][3], zone.y); w<=max(hors[i][0]+hors[i][3], zone.y+zone.height); ++w){
+                        int _startP = max(round(hors[i][0]-hors[i][3]/2), round(zone.y)),
+                            _endP = min(round(_startP+hors[i][3]), round(zone.y+zone.height));
+                        for(int w=_startP; w<_endP; ++w){
                             /// Pour chaque point dans l'épaisseur
-                            int locVal = hsvSplitted[2].at<uchar>(w,i);
-                            if((locVal>_lineInf) && (locVal<_lineSup)){   /// Filtre de couleur de ligne
-                                mask.at<uchar>(w,j) = 0x00;
+                            int locVal = hsvSplitted[2].at<uchar>(w,j);
+                                //edgeCleanMask.at<uchar>(w,j) = 0x5F;
+                                edgeCleanMask.at<uchar>(w,j) = 0x0;
+                            if((locVal>=_lineInf) && (locVal<=_lineSup)){   /// Filtre de couleur de ligne
+                                //cout<<_lineInf<<" "<<locVal<<" "<<_lineSup<<endl;
+                                //cout<<locVal<<endl;
+                                mask.at<uchar>(w,j) = 0x0;
+                                //cout<<w<<","<<j<<endl;
                             }
                         }
                     }
                 }
             }
             for(int i=0; i<vers.size(); ++i){   /// Pour chaque verticale
-                if(vers[i][0]>=zone.x && vers[i][0]<=zone.x+zone.width){
+                if(vers[i][0]>=zone.x && vers[i][0]<zone.x+zone.width){
                     for(int j=zone.y; j<zone.y+zone.height; ++j){   /// Pour chaque largeur
-                        for(int w=min(vers[i][0]-vers[i][3], zone.x); w<=max(vers[i][0]+vers[i][3], zone.x+zone.width); ++w){
+                        int _startP = max(round(vers[i][0]-vers[i][3]/2), round(zone.x)),
+                            _endP = min(round(_startP+vers[i][3]), round(zone.x+zone.width));
+                        for(int w=_startP; w<_endP; ++w){
                             /// Pour chaque point dans l'épaisseur
                             int locVal = hsvSplitted[2].at<uchar>(j,w);
-                            if((locVal>_lineInf) && (locVal<_lineSup)){   /// Filtre de couleur de ligne
-                                mask.at<uchar>(w,j) = 0x00;
+                            edgeCleanMask.at<uchar>(j,w) = 0x0;
+                            if((locVal>=_lineInf) && (locVal<=_lineSup)){   /// Filtre de couleur de ligne
+                                mask.at<uchar>(j,w) = 0x0;
                             }
                         }
                     }
                 }
             }
-
+            //edgeMask = _edgeMask;
             return mask;
         });
         return;
@@ -163,7 +188,7 @@ namespace ogr{
 
 
     /****************************
-    //  DETECTION DES COURBES
+    //  DETECTION DES COULEURS
     ****************************/
 
     void getColors(Mat hsvPic[], Rect graphArea,
@@ -181,8 +206,16 @@ namespace ogr{
         /// et son max
         double histoH[256]={}, maxV = 0, maxId=-1;
         getHistogram(hsvPic[0], histoH, mask);
-        for(int i=0; i<256; ++i){
-            //cout<<i<<"="<<histoH[i]<<endl;
+
+        /*double _sumH=0;
+        for(int i=0; i<180; ++i)
+            _sumH += histoH[i];
+        int y=0;
+        while(histoH[y]<_sumH/2)
+            ++y;
+        maxId = y;
+        */
+        for(int i=0; i<180; ++i){
             if(histoH[i]>maxV){
                 maxV = histoH[i];
                 maxId = i;
@@ -190,7 +223,11 @@ namespace ogr{
         }
 
         optimizer(params, [=, &distribColors, &maskColor]()->Mat{
-            Mat observedColors = Mat::zeros(mask.size(),CV_8UC3);
+            Mat observedColors;
+            if(DEBUG){
+                observedColors = Mat::zeros(mask.size(),CV_8UC3);
+                cout<<"== Détection des couleurs =="<<endl;
+            }
             distribColors = vector<gaussianCurve>();
 
             /// La teinte h est une valeur qui boucle: 180°=0°
@@ -202,9 +239,10 @@ namespace ogr{
             ///     Il faudra translater les valeurs récupérées par les médianes
             bool flagUp = false;
             int _gap = 0, _bias = 0;
-            double seuilMax = maxId*(double)*(params[0].paramAddress) /100;
+            //double seuilMax = maxV*(double)*(params[0].paramAddress) /100;
+            double seuilMax = 1;
             for(int l=0; l<180 && !flagUp; ++l){
-                if(histoH[l] >= seuilMax){
+                if(histoH[l] > seuilMax){
                     _bias = l;
                     _gap = 0;
                 }else{
@@ -214,12 +252,14 @@ namespace ogr{
                 }
             }
             ++_bias;
+            cout<<_bias<<endl
+                <<histoH[1]<<" "<<maxV<<endl;
 
             /// La clusterisation des couleurs permet de déterminer les différentes courbes
             ///     on découpe continument les intervales
             ///     il y a une tolérance de gaps fournies par l'utilisateur
             ///     le masque d'histo est appliqué continument pour extraire les intervales
-            ///     A la fin, on calcule la distribution MAD correspondant
+            ///     A la fin, on calcule la distribution correspondante
             double _histoH[256] = {};
             _gap = 0;
             int _start = 0, _end = 0;
@@ -227,33 +267,38 @@ namespace ogr{
             flagUp = false;
             for(int l=0; l<180; ++l){
                 int _bL = (l+_bias)%180;
-                if(histoH[_bL] >= seuilMax){
+                if(histoH[_bL] > seuilMax){
                     if(!flagUp){    /// reset buffers, nouveau range
                         flagUp = true;
-                        if(DEBUG)
+                        if(DEBUG){
                             _start = _bL;
+                        }
                         fill_n(_histoH, _histoH[255], 0);
                     }
+                    /// puis incrémente sur l'interval
                     if(DEBUG)
                         _end = _bL; /// incrémentation de l'interv
                     _histoH[l] = histoH[_bL]; /// ajout dans le buffer avec biais
                     _gap = 0;
-                }else{
+                }else{  /// si la teinte ne passe pas le seuil d'histogramme
                     ++_gap;
-                    if(false)  /// On va échantillonner même les valeurs sous le seuil
+                    if(flagUp)  /// On va échantillonner même les valeurs sous le seuil
                         _histoH[l] = histoH[_bL];
-                    if(flagUp && (_gap > *(params[1].paramAddress))){ /// On termine le range
-                        flagUp = false;
-                        gaussianCurve _distrib = histo2mad(_histoH);
-                        //gaussianCurve _distrib = histo2gaussian(_histoH);
-                        _distrib.mean = (_distrib.mean-_bias+180)%180;
-                        cout<<_distrib.mean<<" "<<_distrib.sigma<<" "<<_bL<<" "<<_bias<<endl;
-                        if(DEBUG)
-                            lims.push_back(Vec2i(_start,_end));
-                        distribColors.push_back(_distrib);
-                    }
+                }
+                if(flagUp && ((_gap > *(params[1].paramAddress)) || (l+1>=180))){ /// On termine le range
+                    flagUp = false;
+                    gaussianCurve _distrib = histo2gaussian(_histoH);
+                    //gaussianCurve _distrib = histo2gaussian(_histoH);
+                    _distrib.mean = (_distrib.mean-_bias+180)%180;
+                    cout<<"mean "<<l<<"="<<_distrib.mean<<endl;
+                    //cout<<_distrib.mean<<" "<<_distrib.sigma<<" "<<_bL<<" "<<_bias<<endl;
+                    if(DEBUG)
+                        lims.push_back(Vec2i(_start,_end));
+                    distribColors.push_back(_distrib);
+                    cout<<"color "<<l<<" : ["<<_start<<":"<<_end<<"]"<<endl;
                 }
             }
+            //cout<<"colors :"<<distribColors.size()<<endl;
 
 
             /// Réalisation des masques de probabilités
@@ -295,11 +340,11 @@ namespace ogr{
                 Mat histoDisp(1,180,CV_8UC3,Scalar(0)), clusterDisp= histoDisp.clone(), rangeDisp= histoDisp.clone();
                 /// Histogramme des teintes
                 for(int i=0; i<180; ++i){
-                    histoDisp.at<Vec3b>(0,i) = Vec3b(i,round(histoH[i]*255/maxId),255);
+                    histoDisp.at<Vec3b>(0,i) = Vec3b(i,255,round(histoH[i]*255/maxId));
                 }
-                cout<<"==Detected colors=="<<endl;
+                //cout<<"==Detected colors=="<<endl;
                 for(int a=0; a<distribColors.size(); ++a){
-                    cout<<"#"<<a<<"/"<<distribColors.size()-1<<" m :"<<distribColors[a].mean<<" s:"<<distribColors[a].sigma<<endl;
+                    //cout<<"#"<<a<<"/"<<distribColors.size()-1<<" m :"<<distribColors[a].mean<<" s:"<<distribColors[a].sigma<<endl;
                     for(int i=(distribColors[a].mean-distribColors[a].sigma+180)%180;
                         i<(distribColors[a].mean+distribColors[a].sigma)%180;
                         i = (i+1)%180){
@@ -307,14 +352,17 @@ namespace ogr{
                     }
 
                     Vec2i lim = lims[a];
-                    int _low = min((lim[0]+_bias)%180, (lim[1]+_bias)%180),
+                    for(int i=lim[0]; i!=lim[1]; i=(i+1)%180){
+                            rangeDisp.at<Vec3b>(0,i) = Vec3b(120,255,255);
+                    }
+                    /*int _low = min((lim[0]+_bias)%180, (lim[1]+_bias)%180),
                         _high = max((lim[0]+_bias)%180, (lim[1]+_bias)%180);
                     for(int i=_low; i<_high; ++i){
                         int _posH = (i+_bias)%180;
-                        cout<<"["<<lim[0]<<":"<<lim[1]<<"]"<<endl;
+                        //cout<<"["<<lim[0]<<":"<<lim[1]<<"]"<<endl;
                         if(i>= lim[0] && i<=lim[1])
                             rangeDisp.at<Vec3b>(0,_posH) = Vec3b(distribColors[a].mean,255,255);
-                    }
+                    }*/
                 }
                 cvtColor(histoDisp,histoDisp, CV_HSV2BGR);
                 cvtColor(clusterDisp,clusterDisp, CV_HSV2BGR);
@@ -462,17 +510,16 @@ namespace ogr{
         double b = 0, mad = 0;
         for(int i=0; i<histoSize; ++i)
             sumMax += histogram[i];
-        cout<<sumMax<<endl;
         /// Obtention de la médiane pondérée
         /// Le dernier quintile sert de correcteur entre la MAD et la STD
         bool flagM = false, flagLQ = false;
         for(int i=0; (i<histoSize) && !flagLQ; ++i){
-            cout<<i<<" :"<<histogram[i]<<endl;
+            //cout<<i<<" :"<<histogram[i]<<endl;
             sum += histogram[i];
             if(sum >= sumMax*0.5 && !flagM){
                 median = i;
                 //b = i; /// Au moins, au cas où la valeur est isolée
-                cout<<"med"<<median<<endl;
+                //cout<<"med"<<median<<endl;
                 flagM = true;
             }
             if(sum >= sumMax*0.75 && !flagLQ){
@@ -480,7 +527,7 @@ namespace ogr{
                 flagLQ = true;
             }
         }
-        cout<<"--out--"<<endl;
+        //cout<<"--out--"<<endl;
 
         /// Recherche de la déviation à la médiane
         ///     On trie l'histogramme des déviations par valeur
