@@ -252,15 +252,44 @@ namespace ogr{
                 }
             }
             ++_bias;
-            cout<<_bias<<endl
-                <<histoH[1]<<" "<<maxV<<endl;
+            //cout<<_bias<<endl
+            //    <<histoH[1]<<" "<<maxV<<endl;
 
             /// La clusterisation des couleurs permet de déterminer les différentes courbes
             ///     on découpe continument les intervales
             ///     il y a une tolérance de gaps fournies par l'utilisateur
             ///     le masque d'histo est appliqué continument pour extraire les intervales
             ///     A la fin, on calcule la distribution correspondante
-            double _histoH[256] = {};
+            _gap = 0;
+            int _start = 0, _end = 0;
+            vector<Vec2i> lims;
+            flagUp = false;
+            for(int l=0; l<180; ++l){
+                int _bL = (l+_bias)%180;
+                if(histoH[_bL] > seuilMax){
+                    if(!flagUp){    /// reset buffers, nouveau range
+                        flagUp = true;
+                        _start = _bL;
+                    }
+                    /// puis incrémente sur l'interval
+                    _end = _bL; /// incrémentation de l'interv
+                    _gap = 0;
+                }else{  /// si la teinte ne passe pas le seuil d'histogramme
+                    ++_gap;
+                }
+                if(flagUp && ((_gap > *(params[1].paramAddress)) || (l+1>=180))){ /// On termine le range
+                    flagUp = false;
+                    int _dist = (180+_end-_start)%180, _sig = round(_dist/2), _med = (_start+_sig)%180;
+                    gaussianCurve _distrib = {_sig,_med};
+                    if(DEBUG){
+                        cout<<"color "<<l<<" : ["<<_start<<":"<<_end<<"]"
+                            <<" = ("<<_distrib.mean<<","<<_distrib.sigma<<")"<<endl;
+                        lims.push_back(Vec2i(_start,_end));
+                    }
+                    distribColors.push_back(_distrib);
+                }
+            }
+            /*double _histoH[256] = {};
             _gap = 0;
             int _start = 0, _end = 0;
             vector<Vec2i> lims;
@@ -278,27 +307,27 @@ namespace ogr{
                     /// puis incrémente sur l'interval
                     if(DEBUG)
                         _end = _bL; /// incrémentation de l'interv
-                    _histoH[l] = histoH[_bL]; /// ajout dans le buffer avec biais
+                    _histoH[(l+_bias)%256] = histoH[_bL]; /// ajout dans le buffer avec biais
                     _gap = 0;
                 }else{  /// si la teinte ne passe pas le seuil d'histogramme
                     ++_gap;
                     if(flagUp)  /// On va échantillonner même les valeurs sous le seuil
-                        _histoH[l] = histoH[_bL];
+                        _histoH[(l+_bias)%256] = histoH[_bL];
                 }
                 if(flagUp && ((_gap > *(params[1].paramAddress)) || (l+1>=180))){ /// On termine le range
                     flagUp = false;
                     gaussianCurve _distrib = histo2gaussian(_histoH);
                     //gaussianCurve _distrib = histo2gaussian(_histoH);
-                    _distrib.mean = (_distrib.mean-_bias+180)%180;
+                    cout<<"color "<<l<<" : ["<<_start<<":"<<_end<<"]"
+                        <<" = ("<<_distrib.mean<<","<<_distrib.sigma<<")"<<endl;
+                    _distrib.mean = (_distrib.mean-_bias)%180;
                     cout<<"mean "<<l<<"="<<_distrib.mean<<endl;
                     //cout<<_distrib.mean<<" "<<_distrib.sigma<<" "<<_bL<<" "<<_bias<<endl;
                     if(DEBUG)
                         lims.push_back(Vec2i(_start,_end));
                     distribColors.push_back(_distrib);
-                    cout<<"color "<<l<<" : ["<<_start<<":"<<_end<<"]"<<endl;
                 }
-            }
-            //cout<<"colors :"<<distribColors.size()<<endl;
+            }*/
 
 
             /// Réalisation des masques de probabilités
@@ -318,7 +347,7 @@ namespace ogr{
                         int _hue = hsvPic[0].at<uchar>(j,i);
                         double maxProb = 0; int maxPos = -1;
                         for(int a=0; a<distribColors.size(); ++a){
-                            double p = distribColors[a].proba(_hue);
+                            double p = distribColors[a].probUnit(_hue);
                             if(p>maxProb){
                                 maxProb = p;
                                 maxPos = a;
@@ -344,16 +373,15 @@ namespace ogr{
                 }
                 //cout<<"==Detected colors=="<<endl;
                 for(int a=0; a<distribColors.size(); ++a){
-                    //cout<<"#"<<a<<"/"<<distribColors.size()-1<<" m :"<<distribColors[a].mean<<" s:"<<distribColors[a].sigma<<endl;
-                    for(int i=(distribColors[a].mean-distribColors[a].sigma+180)%180;
-                        i<(distribColors[a].mean+distribColors[a].sigma)%180;
-                        i = (i+1)%180){
-                        clusterDisp.at<Vec3b>(0,i) = Vec3b(distribColors[a].mean,255,255);
-                    }
-
                     Vec2i lim = lims[a];
                     for(int i=lim[0]; i!=lim[1]; i=(i+1)%180){
-                            rangeDisp.at<Vec3b>(0,i) = Vec3b(120,255,255);
+                        rangeDisp.at<Vec3b>(0,i) = Vec3b(i,255,255);
+                        int u = i;
+                        if(i<lim[0])
+                            u = 180 + i;
+                        int _prob = round(distribColors[a].probUnit(u)*255);
+                        clusterDisp.at<Vec3b>(0,i) = Vec3b(distribColors[a].mean,255,_prob);
+
                     }
                     /*int _low = min((lim[0]+_bias)%180, (lim[1]+_bias)%180),
                         _high = max((lim[0]+_bias)%180, (lim[1]+_bias)%180);

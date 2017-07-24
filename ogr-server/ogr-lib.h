@@ -40,8 +40,23 @@ namespace ogr{
         int sigma, mean;
         double proba(int x){
             static const double sqt_inv_pi= 1/(sqrt(2*CV_PI));
-            double a = (double)(x-this->mean) / this->sigma;
+            double a;
+            /// Quand la distribution est étroite,
+            ///     la probabilité est un delta de dirac
+            if(this->sigma <= 0)
+                return (double)(x==this->mean);
+            else
+                a = (double)(x-this->mean) / this->sigma;
             return sqt_inv_pi / this->sigma * exp(-0.5*a*a);
+        }
+        double probUnit(int x){
+            static const double sqt_inv_pi= 1/(sqrt(2*CV_PI));
+            double a;
+            if(this->sigma <= 0)
+                return (double)(x==this->mean);
+            else
+                a = (double)(x-this->mean) / this->sigma;
+            return exp(-0.5*a*a);
         }
     };
     struct gaussian3{
