@@ -228,6 +228,9 @@ namespace ogr{
     void getColors(Mat hsvPic[], Rect graphArea,
         vector<gaussianCurve> &distribColors, Mat &maskColor, Mat mask);
 
+    void sortEdgesByColor(Mat huePic, Mat edgePic, vector<gaussianCurve> distribColors, Rect, vector<Mat> colorMasks);
+
+
     void detectCurves(Mat hsv[], Mat maskColor, vector<gaussianCurve> distribColors, vector<vector<Point>> &detectedCurves);
     /** HISTO2MAD
     *       convertit un histogramme en distribution autour de la médiane à déviation absolue (MAD)

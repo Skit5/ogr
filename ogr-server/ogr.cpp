@@ -79,9 +79,8 @@ namespace ogr{
 
         //// Extraction des traits
         //getStrokes(edgeClusterIndices, distribColors, strokes);
-
         /// Trier les arêtes par couleur
-
+        sortEdgesByColor(hsvSplitted[0], noQuadEdges, distribColors, graphArea, colorMasks);
         /// Détection des courbes
         //vector<vector<Point>> detectedCurves;
         //detectCurves(maskColor, distribColors, detectedCurves);
