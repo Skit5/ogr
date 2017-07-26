@@ -1,0 +1,46 @@
+h1 {
+  	text-shadow: 2px 0 0 #fff, -2px 0 0 #fff, 0 2px 0 #fff, 0 -2px 0 #fff, 1px 1px #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;  
+}
+#footer{
+	background-color: #3A3A5A;
+	color: #D8D8B5;
+}
+.footer-block{
+	min-height: 200px;
+	padding: 25px;
+	text-align: center;
+}
+.footer-block h4{
+	font-weight: bold;
+	font-size: 12pt;
+}
+.footer-block img{
+	height: 100px;
+	margin: auto;
+}
+.jumbotron{
+	background-color: #383838;
+}
+#toolbar{
+	margin: 10px 25px;
+}
+#searchbar input{
+	width: 214px;
+	margin-right: 0;
+	display: inline-block;
+}
+#searchbar span{
+	left: -25px;
+}
+.last-note{
+	text-align: center;
+	color: #535353;
+	padding: 10px;
+}
+#managebar{
+	float: right;
+}
+#managebar span{
+	padding: 10px;
+	cursor: pointer;
+}
