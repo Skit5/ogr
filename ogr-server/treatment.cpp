@@ -8,25 +8,27 @@ namespace ogr{
                 {&kernelSize,"Kernel Size",100},
                 {&errThresh,"Curve ErrThreshold",100}
         };
-        optimizer(params, [=, &distribColors, &detectedCurves]()->Mat{
+        optimizer(params, [=, &detectedCurves]()->Mat{
             Mat curves;
             int _kernel = 2*(*(params[1].paramAddress))+1;
             for(int c=0; c<maskColors.size(); ++c){ /// Pour chaque masque de couleur
                 Mat _color = maskColors[c];
                 for(int x=0; x<_color.cols; ++x){
+                    for(int y=0; y<_color.rows; ++y){
 
+                    }
                 }
                 vector<vector<int>> _dispersion;
-                double histDx[maskColor.cols] = {};
+                double histDx[maskColors[0].cols] = {};
                 /// Pour chaque couleur, on récupère sur l'abscisse
                 ///     les positions des pixels
                 ///     l'histogramme du nombre de pixels
-                for(int x=0; x<maskColor.cols; ++x){ /// Découpe par dx
+                for(int x=0; x<maskColors[0].cols; ++x){ /// Découpe par dx
                     vector<int> _dx;
                     double _hist = 0;
                     //Mat col = maskColor.at<uchar>()col(colInd);
-                    for(int y=0; y<maskColor.rows; ++y){
-                        if(maskColor.at<uchar>(y,x) == c){
+                    for(int y=0; y<maskColors[0].rows; ++y){
+                        if(maskColors[0].at<uchar>(y,x) == c){
                             /// On extrait les pixels appartenant à c sur dx
                             _dx.push_back(y);
                             ++_hist;

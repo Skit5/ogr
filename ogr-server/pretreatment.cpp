@@ -44,8 +44,113 @@ namespace ogr{
         }
 
         optimizer(params, [=, &detectedEdges]()->Mat{
-            Canny(greyPicture, detectedEdges, *(params[0].paramAddress), *(params[1].paramAddress), 3);
+            Canny(greyPicture, detectedEdges, *(params[0].paramAddress), *(params[1].paramAddress), 3, false);
             return detectedEdges;
+        });
+        return;
+    }
+
+    void flattenColors(Mat pic, Mat &flattened){
+        int sp = 0, sr = 64, maxLevel = 0,
+            maxCount = 30, eps = 10; /// Valeurs à étudier
+        vector<param2optimize> params{
+            {&sp,"Spatial Window Radius",1000},
+            {&sr,"Color Window Radius",180},
+            {&maxLevel,"Max Pyramid Level",8},
+            {&maxCount,"Max Count",500},
+            {&eps,"Epsilon",1000}
+        };
+
+        if(DEBUG){
+            cout<<"== Applatissement des couleurs =="<<endl;
+            //resize(pic,pic,pic.size()*2/3);
+        }
+        optimizer(params, [=, &flattened]()->Mat{
+            TermCriteria terms{};
+            terms.maxCount = *(params[3].paramAddress);
+            terms.epsilon = *(params[4].paramAddress)/1000;
+            terms.type = TermCriteria::COUNT + TermCriteria::EPS;
+            pyrMeanShiftFiltering(pic,flattened,(double)*(params[0].paramAddress),(double)*(params[1].paramAddress),
+                *(params[2].paramAddress),terms);
+
+            if(DEBUG){
+                Mat hsv, hsplit[3], _hsv, _hsplit[3];
+                double h[256]={}, v[256]={}, sv[256]={},
+                    maxH = 0, maxV = 0, maxSV = 0,
+                    _h[256]={}, _v[256]={}, _sv[256]={},
+                    _maxH = 0, _maxV = 0, _maxSV = 0;
+                cvtColor(flattened,hsv,CV_BGR2HSV);
+                split(hsv,hsplit);
+                cvtColor(pic,_hsv,CV_BGR2HSV);
+                split(_hsv,_hsplit);
+                for(int i=0; i<hsplit[1].cols; ++i){
+                    for(int j=0; j<hsplit[1].rows; ++j){
+                        hsplit[1].at<uchar>(j,i) = floor((double)sqrt(hsplit[1].at<uchar>(j,i)*hsplit[2].at<uchar>(j,i)));
+                        _hsplit[1].at<uchar>(j,i) = floor((double)sqrt(_hsplit[1].at<uchar>(j,i)*_hsplit[2].at<uchar>(j,i)));
+                    }
+                }
+                getHistogram(hsplit[0], h);
+                getHistogram(hsplit[2], v);
+                getHistogram(hsplit[1], sv);
+                getHistogram(_hsplit[0], _h);
+                getHistogram(_hsplit[2], _v);
+                getHistogram(_hsplit[1], _sv);
+
+
+                for(int i=0; i<256; ++i){
+                    if(i<180){
+                        if(h[i]>maxH)
+                            maxH = h[i];
+                        if(_h[i]>_maxH)
+                            _maxH = _h[i];
+                    }
+                    if(v[i]>maxV)
+                        maxV = v[i];
+                    if(sv[i]>maxSV)
+                        maxSV = sv[i];
+                    if(_v[i]>_maxV)
+                        _maxV = _v[i];
+                    if(_sv[i]>_maxSV)
+                        _maxSV = _sv[i];
+                }
+
+
+
+                Mat hDisp(1,180,CV_8UC3,Scalar(0)),
+                    vDisp(1,256,CV_8UC3,Scalar(0)),
+                    svDisp(1,256,CV_8UC3,Scalar(0)),
+                    _hDisp(1,180,CV_8UC3,Scalar(0)),
+                    _vDisp(1,256,CV_8UC3,Scalar(0)),
+                    _svDisp(1,256,CV_8UC3,Scalar(0));
+                /// Histogramme des teintes
+                for(int i=0; i<256; ++i){
+                    if(i<180){
+                        hDisp.at<Vec3b>(0,i) = Vec3b(i,255,round(h[i]/maxH*255));
+                        _hDisp.at<Vec3b>(0,i) = Vec3b(i,255,round(_h[i]/_maxH*255));
+                        //cout<<(1+(log(h[i]/maxH)))<<endl;
+                        //cout<<round((log(h[i])/log(maxH))*255)<<endl;
+                    }
+                    vDisp.at<Vec3b>(0,i) = Vec3b(0,0,round(v[i]/maxV*255));
+                    svDisp.at<Vec3b>(0,i) = Vec3b(0,0,round(sv[i]*255/maxSV));
+                    _vDisp.at<Vec3b>(0,i) = Vec3b(0,0,round(_v[i]/_maxV*255));
+                    _svDisp.at<Vec3b>(0,i) = Vec3b(0,0,round(_sv[i]*255/_maxSV));
+                }
+                hDisp.push_back(_hDisp);
+                vDisp.push_back(_vDisp);
+                svDisp.push_back(_svDisp);
+                cvtColor(hDisp,hDisp, CV_HSV2BGR);
+                cvtColor(vDisp,vDisp, CV_HSV2BGR);
+                cvtColor(svDisp,svDisp, CV_HSV2BGR);
+                resize(hDisp, hDisp, Size(flattened.cols,35));
+                resize(vDisp, vDisp, Size(flattened.cols,35));
+                resize(svDisp, svDisp, Size(flattened.cols,35));
+                flattened.push_back(hDisp);
+                flattened.push_back(vDisp);
+                flattened.push_back(svDisp);
+
+
+            }
+            return flattened;
         });
         return;
     }

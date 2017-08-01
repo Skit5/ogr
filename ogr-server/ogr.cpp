@@ -16,6 +16,7 @@ namespace ogr{
         vector<Vec3i> horEdges, verEdges;
         vector<gaussianCurve> distribColors;
         vector<Point> intersects;
+        vector<vector<Point>> detectedCurves;
         Size picSize;
         //vector<stroke> strokes;
 
@@ -39,6 +40,9 @@ namespace ogr{
         /// Extraction des calques hsv
         cvtColor(bgrPicture, hsvPicture, CV_BGR2HSV);
         split(hsvPicture,hsvSplitted);
+
+        Mat picFlat;
+        flattenColors(bgrPicture, picFlat);
 
         /// Détection des arêtes
         getEdges(hsvSplitted[2], edgesPicture);

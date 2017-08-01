@@ -210,6 +210,7 @@ namespace ogr{
     void lines2Prob(vector<Vec4i> lines, vector<Vec4d> &probs);
     void filterLines(vector<Vec4i> &lines, vector<Vec4d> probs, int thresh);
     void lines2Rect(vector<Vec4i> horizontales, vector<Vec4i> verticales, Point center, Rect &zone);
+    void flattenColors(Mat pic, Mat &flattened);
 
     /****** NETTOYAGE ******/
 
@@ -231,7 +232,7 @@ namespace ogr{
     void sortEdgesByColor(Mat huePic, Mat edgePic, vector<gaussianCurve> distribColors, Rect, vector<Mat> colorMasks);
 
 
-    void detectCurves(Mat hsv[], Mat maskColor, vector<gaussianCurve> distribColors, vector<vector<Point>> &detectedCurves);
+    //void detectCurves(Mat hsv[], Mat maskColor, vector<gaussianCurve> distribColors, vector<vector<Point>> &detectedCurves);
     /** HISTO2MAD
     *       convertit un histogramme en distribution autour de la médiane à déviation absolue (MAD)
     *       params: (int[]) histogramme 256
@@ -264,6 +265,9 @@ namespace ogr{
     *       return: (void)
     */
     void getStrokes(Mat edgeClusterIndices, vector<gaussian3> distribColors, vector<Vec4i> &strokes);
+
+    void detectCurves(vector<Mat> maskColors, vector<vector<Point>> &detectedCurves);
+
 
     /****** VECTORISATION ******/
 }
