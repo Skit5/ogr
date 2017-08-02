@@ -487,16 +487,27 @@ namespace ogr{
     //  RÉCUPÉRATION DES TRAITS
     ****************************/
 
-    void getStrokes(Mat edgeClusterIndices, vector<gaussian3> distribColors, vector<Vec4i> &strokes){
+    void getStrokes(Mat edgePic, vector<gaussian3> distribColors, vector<Vec4i> &strokes){
+            int mode=2, method=2;
             vector<param2optimize> params{
-                //{&thresh,"Threshold",1000}
+                {&mode,"Mode",5},
+                {&method,"Method",5}
             };
         optimizer(params, [=, &strokes]()->Mat{
             Mat strokedPic;
+            RNG rng(12345);
+            if(DEBUG)
+                strokedPic = Mat::zeros(edgePic.size(), CV_8UC3);
+            vector<vector<Point>> conts;
+            vector<Vec4i> hierarch;
+            findContours(edgePic,conts,hierarch,CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE, Point(0,0));
 
             /// En mode debug,
             if(DEBUG){
-
+                for(int i=0; i<conts.size(); ++i){
+                    Scalar color = Scalar(rng.uniform(0,255), rng.uniform(0,255), rng.uniform(0,255));
+                    drawContours(strokedPic, conts, i, color, 2, 8, hierarch, 0, Point());
+                }
             }
             return strokedPic;
         });

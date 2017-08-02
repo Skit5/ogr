@@ -211,6 +211,7 @@ namespace ogr{
     void filterLines(vector<Vec4i> &lines, vector<Vec4d> probs, int thresh);
     void lines2Rect(vector<Vec4i> horizontales, vector<Vec4i> verticales, Point center, Rect &zone);
     void flattenColors(Mat pic, Mat &flattened);
+    void flattenPattern(Mat pic, Mat &flattened);
 
     /****** NETTOYAGE ******/
 
