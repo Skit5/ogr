@@ -158,7 +158,8 @@ namespace ogr{
 
 
     void flattenPattern(Mat pic, Mat &flattened){
-        int d = 0, sc = 34, ss = 20; /// Valeurs à étudier
+        //int d = 0, sc = 34, ss = 20; /// Valeurs à étudier
+        int d = 0, sc = 12, ss = 10; /// Valeurs à étudier
         Mat _hDisp(1,180,CV_8UC3,Scalar(0)),
             _vDisp(1,256,CV_8UC3,Scalar(0)),
             _svDisp(1,256,CV_8UC3,Scalar(0));
@@ -586,7 +587,7 @@ namespace ogr{
     void getGraphArea(vector<Point> intersects, Size picSize, vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect &zone){
             Point center(picSize.width/2,picSize.height/2);
             Size picDims = picSize;
-            int thresh=18;
+            int thresh=12;
             vector<param2optimize> params{
                 {&thresh,"LinProbThresh",1000}
             };

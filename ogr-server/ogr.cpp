@@ -12,11 +12,12 @@ namespace ogr{
             bgMask, edgeClusterIndices;
         Rect graphArea;
         vector<Mat> colorMasks;
-        vector<Vec4i> horizontales, verticales, strokes, edgeLines;
+        vector<Vec4i> horizontales, verticales, strokes,
+            edgeLines, hierarchy;
         vector<Vec3i> horEdges, verEdges;
         vector<gaussianCurve> distribColors;
         vector<Point> intersects;
-        vector<vector<Point>> detectedCurves;
+        vector<vector<Point>> detectedCurves, contours;
         Size picSize;
         //vector<stroke> strokes;
 
@@ -48,8 +49,8 @@ namespace ogr{
 
         /// Détection des arêtes
         getEdges(hsvSplitted[2], edgesPicture);
-        vector<gaussian3> distribsColors;
-        getStrokes(edgesPicture, distribsColors, strokes);
+        //getStrokes(edgesPicture, distribsColors, strokes);
+        getStrokes(edgesPicture, contours, hierarchy);
 
         /// Détection des lignes
         getEdgeLines(edgesPicture, edgeLines);
@@ -69,6 +70,9 @@ namespace ogr{
 
         /// Extraction du masque de fond
         ///     et nettoyage du masque des arêtes
+        vector<vector<Point>> contClean;
+        vector<Vec4i> hierClean;
+        filterCurveBg(hsvSplitted,contours, hierarchy, contClean, hierClean, horizontales, verticales, graphArea);
         getBgMask(hsvSplitted, edgesPicture, bgMask, noQuadEdges, graphArea, verticales, horizontales);
         /*gaussian3 distribBg = getMaxColor(hsvPicture, graphArea);
 
@@ -88,7 +92,7 @@ namespace ogr{
         //// Extraction des traits
         //getStrokes(edgeClusterIndices, distribColors, strokes);
         /// Trier les arêtes par couleur
-        sortEdgesByColor(hsvSplitted[0], noQuadEdges, distribColors, graphArea, colorMasks);
+        //sortEdgesByColor(hsvSplitted[0], noQuadEdges, distribColors, graphArea, colorMasks);
         /// Détection des courbes
         //vector<vector<Point>> detectedCurves;
         //detectCurves(maskColor, distribColors, detectedCurves);

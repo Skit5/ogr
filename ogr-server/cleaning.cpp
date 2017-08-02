@@ -487,26 +487,25 @@ namespace ogr{
     //  RÉCUPÉRATION DES TRAITS
     ****************************/
 
-    void getStrokes(Mat edgePic, vector<gaussian3> distribColors, vector<Vec4i> &strokes){
-            int mode=2, method=2;
-            vector<param2optimize> params{
-                {&mode,"Mode",5},
-                {&method,"Method",5}
-            };
-        optimizer(params, [=, &strokes]()->Mat{
+    void getStrokes(Mat edgePic, vector<vector<Point>> &conts, vector<Vec4i> &hierarch){
+        int level=0;
+        vector<param2optimize> params{
+            {&level,"Niveau",500}
+        };
+        optimizer(params, [=, &hierarch, &conts]()->Mat{
             Mat strokedPic;
             RNG rng(12345);
             if(DEBUG)
                 strokedPic = Mat::zeros(edgePic.size(), CV_8UC3);
-            vector<vector<Point>> conts;
-            vector<Vec4i> hierarch;
-            findContours(edgePic,conts,hierarch,CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE, Point(0,0));
+            findContours(edgePic,conts,hierarch,CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0,0));
 
             /// En mode debug,
             if(DEBUG){
-                for(int i=0; i<conts.size(); ++i){
+                for(int i=0; i<hierarch.size(); ++i){
                     Scalar color = Scalar(rng.uniform(0,255), rng.uniform(0,255), rng.uniform(0,255));
-                    drawContours(strokedPic, conts, i, color, 2, 8, hierarch, 0, Point());
+                    int _lvl = *(params[0].paramAddress)-2;
+                    if(hierarch[i][3] == _lvl || _lvl<=-2)
+                        drawContours(strokedPic, conts, i, color, 2, 8, hierarch, 0, Point());
                 }
             }
             return strokedPic;
@@ -516,8 +515,105 @@ namespace ogr{
     }
 
 
+    /****************************
+    //  FILTRAGE DES COURBES
+    ****************************/
+    void filterCurveBg(Mat hsv[], vector<vector<Point>> contours, vector<Vec4i>hierarchy, vector<vector<Point>> &contClean,
+        vector<Vec4i> &hierClean, vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect graphArea){
+
+        int thresh = 100;
+        vector<Rect> lines = {};
+        for(int i=0; i<horizontales.size(); ++i){
+            Rect _r;
+            Vec4i _h = horizontales[i];
+            _r.x = _h[1];
+            _r.y = round(_h[0]-(_h[3]/2));
+            _r.width = _h[2]-_h[1];
+            _r.height = _h[3];
+            lines.push_back(_r);
+        }
+        for(int i=0; i<verticales.size(); ++i){
+            Rect _r;
+            Vec4i _v = verticales[i];
+            _r.y = _v[1];
+            _r.x = round(_v[0]-(_v[3]/2));
+            _r.height = _v[2]-_v[1];
+            _r.width = _v[3];
+            lines.push_back(_r);
+        }
+
+        vector<param2optimize> params{
+            {&thresh,"SeuilZone",70}
+        };
+        optimizer(params, [=, &hierClean, &contClean]()->Mat{
+            Mat filteredPic;
+            RNG rng(12345);
+            contClean = contours;
+            hierClean = hierarchy;
+
+            if(DEBUG)
+                filteredPic = Mat::zeros(hsv[0].size(), CV_8UC3);
+            filterZone(contClean,hierClean,graphArea,*(params[0].paramAddress));
+            filterLines(contClean,hierClean,lines,*(params[0].paramAddress));
+
+            /// En mode debug,
+            if(DEBUG){
+                for(int i=0; i<contClean.size(); ++i){
+                    Scalar color = Scalar(rng.uniform(0,255), rng.uniform(0,255), rng.uniform(0,255));
+                    drawContours(filteredPic, contClean, i, color, 2, 8, hierClean, 0, Point());
+                }
+            }
+            return filteredPic;
+        });
 
 
+        return;
+    }
+
+    void filterZone(vector<vector<Point>> &cont, vector<Vec4i> &hier, Rect zone, int threshold){
+        for(int i=0; i<cont.size(); ++i){
+            vector<Point> branch = cont[i];
+            double votes = 0;
+            for(int j=0; j<branch.size(); ++j){
+                if(zone.contains(branch[j])){
+                    ++votes;
+                }
+            }
+            votes /= branch.size();
+            if(votes < (double)threshold/100){
+                cont.erase(cont.begin()+i);
+                hier.erase(hier.begin()+i);
+                --i;
+            }
+        }
+        return;
+    }
+
+    void filterLines(vector<vector<Point>> &cont, vector<Vec4i> &hier, vector<Rect>lines, int threshold){
+        for(int i=0; i<cont.size(); ++i){
+            vector<Point> branch = cont[i];
+            double votes = 0;
+            for(int j=0; j<branch.size(); ++j){
+                //cout<<"hie "<<i<<" s "<<cont.size()<<endl;
+                bool inlineFlag = false;
+                for(int k=0; k<lines.size() && !inlineFlag; ++k){
+                    if(lines[k].contains(branch[j])){
+                        cont[i].erase(cont[i].begin()+j);
+                        branch.erase(branch.begin()+j);
+                        --j;
+                        inlineFlag = true;
+                    }
+                }
+            }
+            cout<<"hie "<<i<<" s "<<cont.size()<<endl;
+            if(cont[i].size()<1){
+                cont.erase(cont.begin()+i);
+                hier.erase(hier.begin()+i);
+                --i;
+            }
+        }
+        return;
+    }
 
     /*vector<Mat> getColorMasks(Mat hsvSplitted[], Mat edgedPicture, Rect workZone){
         vector<Mat> colorMasks;
