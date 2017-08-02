@@ -85,6 +85,8 @@ namespace ogr{
         //getColors(hsvSplitted, graphArea, distribColors, bgMask);
         //Mat maskColor;
         getColors(hsvSplitted, graphArea, distribColors, maskColor, bgMask);
+        vector<int> hierColor = {};
+        sortCurvesByColor(hsvSplitted[0], contClean, hierClean, distribColors, hierColor);
         //// Classification des arêtes
         //sortEdges(edgesPicture,hsvPicture, graphArea, distribColors,
         //    edgeClusterIndices, {distribBg, distribLines});

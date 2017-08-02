@@ -521,7 +521,7 @@ namespace ogr{
     void filterCurveBg(Mat hsv[], vector<vector<Point>> contours, vector<Vec4i>hierarchy, vector<vector<Point>> &contClean,
         vector<Vec4i> &hierClean, vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect graphArea){
 
-        int thresh = 100;
+        int thresh = 70;
         vector<Rect> lines = {};
         for(int i=0; i<horizontales.size(); ++i){
             Rect _r;
@@ -543,7 +543,7 @@ namespace ogr{
         }
 
         vector<param2optimize> params{
-            {&thresh,"SeuilZone",70}
+            {&thresh,"SeuilZone",100}
         };
         optimizer(params, [=, &hierClean, &contClean]()->Mat{
             Mat filteredPic;
@@ -605,7 +605,7 @@ namespace ogr{
                     }
                 }
             }
-            cout<<"hie "<<i<<" s "<<cont.size()<<endl;
+            //cout<<"hie "<<i<<" s "<<cont.size()<<endl;
             if(cont[i].size()<1){
                 cont.erase(cont.begin()+i);
                 hier.erase(hier.begin()+i);
@@ -613,6 +613,70 @@ namespace ogr{
             }
         }
         return;
+    }
+
+
+
+    /****************************
+    //  MERGE DES COURBES
+    ****************************/
+
+    void sortCurvesByColor(Mat hPic, vector<vector<Point>> cont, vector<Vec4i> hier, vector<gaussianCurve> colors,
+        vector<int> &hierColor){
+
+        vector<param2optimize> params{
+        };
+        optimizer(params, [=, &hierColor]()->Mat{
+            Mat sortedPic;
+            hierColor = vector<int>(cont.size());
+            if(DEBUG)
+                sortedPic = Mat::zeros(hPic.size(), CV_8UC3);
+
+            for(int i=0; i<cont.size(); ++i){
+                cout<<"0"<<endl;
+                vector<Point> branch = cont[i];
+                vector<int> _hCol(colors.size());
+                int _max = -1;
+                for(int j=0; j<branch.size(); ++j){
+                    Point _p = branch[j];
+                cout<<_p<<" "<<hPic.size()<<endl;
+                    int _c = hPic.at<uchar>(_p.y,_p.x),
+                        _kC = -1;
+                    cout<<"1"<<endl;
+                    for(int k=0; (k<colors.size()) && (_kC<0); ++k){
+                        gaussianCurve _gC = colors[k];
+                        int _dist = min(abs(_c-_gC.mean),abs(180+_c-_gC.mean));
+                        if(_dist<=_gC.sigma)
+                            _kC = k;
+                    }
+                    cout<<"2"<<endl;
+                    if(_kC>=0){
+                        ++_hCol[_kC];
+                        if(_hCol[_kC]>_hCol[_max])
+                            _max = _kC;
+                    }
+                }
+                hierColor[i] = _max;
+                cout<<"3"<<endl;
+            }
+            cout<<"4"<<endl;
+
+            /// En mode debug,
+            if(DEBUG){
+                for(int i=0; i<cont.size(); ++i){
+                    if(hierColor[i]>=0){
+                        Scalar color = Scalar(colors[hierColor[i]].mean,255,255);
+                        drawContours(sortedPic, cont, i, color, 2, 8, hier, 0, Point());
+                    }
+                }
+                cvtColor(sortedPic, sortedPic, CV_HSV2BGR);
+            }
+            return sortedPic;
+        });
+
+
+        return;
+
     }
 
     /*vector<Mat> getColorMasks(Mat hsvSplitted[], Mat edgedPicture, Rect workZone){

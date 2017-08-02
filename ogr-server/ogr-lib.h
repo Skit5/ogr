@@ -274,6 +274,8 @@ namespace ogr{
     void filterZone(vector<vector<Point>> &cont, vector<Vec4i> &hier, Rect zone, int threshold);
     void filterLines(vector<vector<Point>> &cont, vector<Vec4i> &hier, vector<Rect>lines, int );
 
+    void sortCurvesByColor(Mat, vector<vector<Point>> cont, vector<Vec4i> hier, vector<gaussianCurve> colors, vector<int> &hierColor);
+
 
     void detectCurves(vector<Mat> maskColors, vector<vector<Point>> &detectedCurves);
 
