@@ -45,7 +45,7 @@ namespace ogr{
         cvtColor(picFlat, hsvPicture, CV_BGR2HSV);
         split(hsvPicture,hsvSplitted);
 
-        //flattenColors(bgrPicture, picFlat);
+        ///flattenColors(bgrPicture, picFlat);
 
         /// Détection des arêtes
         getEdges(hsvSplitted[2], edgesPicture);
@@ -59,8 +59,10 @@ namespace ogr{
         getIntegratLines(verEdges, picSize, picSize.width-1, verticales);
         /// Définition de la zone de travail
         getIntersect(horizontales, verticales, intersects);
+        vector<Point> filteredInterects;
+        filterIntersect(hsvSplitted[2], contours, hierarchy, intersects, filteredInterects, graphArea);
         //sortIntersectByColor(intersects, hsvSplitted, horizontales, verticales, quadIntersects);
-        getGraphArea(intersects, picSize, horizontales, verticales, graphArea);
+        //getGraphArea(filteredInterects, picSize, horizontales, verticales, graphArea);
 
         //getGraphArea(horizontales, verticales, hsvSplitted[2], graphArea);
 

@@ -526,18 +526,22 @@ namespace ogr{
         for(int i=0; i<horizontales.size(); ++i){
             Rect _r;
             Vec4i _h = horizontales[i];
-            _r.x = _h[1];
+            //_r.x = _h[1];
+            _r.x = 0;
             _r.y = round(_h[0]-(_h[3]/2));
-            _r.width = _h[2]-_h[1];
+            //_r.width = _h[2]-_h[1];
+            _r.width = hsv[0].cols;
             _r.height = _h[3];
             lines.push_back(_r);
         }
         for(int i=0; i<verticales.size(); ++i){
             Rect _r;
             Vec4i _v = verticales[i];
-            _r.y = _v[1];
+            //_r.y = _v[1];
+            _r.y = 0;
             _r.x = round(_v[0]-(_v[3]/2));
-            _r.height = _v[2]-_v[1];
+            //_r.height = _v[2]-_v[1];
+            _r.height = hsv[0].rows;
             _r.width = _v[3];
             lines.push_back(_r);
         }

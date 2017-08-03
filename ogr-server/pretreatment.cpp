@@ -6,7 +6,7 @@ namespace ogr{
     //  DETECTION DES ARÊTES
     ****************************/
     void getEdges(Mat greyPicture, Mat &detectedEdges){
-        int lowThreshold=62, highThreshold=137; /// Valeurs optimisées
+        int lowThreshold=58, highThreshold=137; /// Valeurs optimisées
         vector<param2optimize> params{
             {&lowThreshold,"Low Threshold",255},
             {&highThreshold,"High Threshold",255}
@@ -584,6 +584,106 @@ namespace ogr{
     /****************************
     //  DETECTION DE LA ZONE
     ****************************/
+    void filterIntersect(Mat vPic, vector<vector<Point>> conts, vector<Vec4i> hiers, vector<Point> ints, vector<Point> &filteredInts, Rect &zone){
+        int eps = 3, err=4;
+        RNG rng(12345);
+        vector<param2optimize> params{
+            {&eps,"Eps",100},
+            {&err,"Err",20}
+        };
+        optimizer(params, [=, &filteredInts, &rng, &zone]()->Mat{
+            Mat detectedZone;
+            if(DEBUG)
+                detectedZone = Mat::zeros(vPic.size(),CV_8UC3);
+            vector<vector<Point>> approx(conts.size());
+            vector<Point> _ints;
+            double maxSumInter = 0;
+            int maxCurve = -1;
+            vector<Rect> boxes(conts.size());
+            for(int i=0; i<conts.size(); ++i){
+                approxPolyDP(Mat(conts[i]), approx[i], *(params[0].paramAddress), true);
+                Mat _a(approx[i]);
+                boxes[i] = boundingRect(_a);
+                double sumInter = 0;
+                for(int j=0; j<ints.size(); ++j)
+                    if(boxes[i].contains(ints[j]))
+                        ++sumInter;
+                if(sumInter>maxSumInter){
+                    maxSumInter = sumInter;
+                    maxCurve = i;
+                }
+            }
+
+            if(maxCurve >= 0){
+                Mat _maskInts = Mat::zeros(vPic.size(),CV_8UC1);
+                drawContours(_maskInts, conts, maxCurve, Scalar(255), *(params[1].paramAddress), 1, hiers, 0, Point());
+                for(int i=0; i<ints.size(); ++i){
+                    Point _p = ints[i];
+                    if(_maskInts.at<uchar>(_p.y,_p.x)>0)
+                        _ints.push_back(_p);
+                }
+
+            }
+
+            filteredInts = _ints;
+            /*Rect _zoneMin = boundingRect(_ints),
+                _zoneMax = boundingRect(conts[maxCurve]),
+                _zone(0,0,0,0);
+            Vec4d _var = {
+                (_zoneMax.x - _zoneMin.x) /_zoneMax.width,
+                (_zoneMax.y - _zoneMin.y) /_zoneMax.height,
+                0,
+                0
+            };
+            if(_var[0]>0.2)
+                _zone.x = _zoneMax.x;
+            else
+                _zone.x = _zoneMin.x;
+            if(_var[1]>0.2)
+                _zone.y = _zoneMax.y;
+            else
+                _zone.y = _zoneMin.y;
+
+            _var[3] = (_zoneMax.width - _zoneMin.width) /_zoneMax.width;
+            _var[4] = (_zoneMax.height - _zoneMin.height) /_zoneMax.height;
+
+            if(_var[3]<0.2)
+                _zone.width = _zoneMax.width - (_zoneMax.x-_zoneMin.x);
+            else
+                _zone.width = _zoneMin.width;
+            if(_var[4]<0.2)
+                _zone.height = _zoneMax.height - (_zoneMax.y-_zoneMin.y);
+            else
+                _zone.height = _zoneMin.height;
+
+            zone = _zone;*/
+            zone = boundingRect(_ints);
+
+            if(DEBUG){
+                for(int i=0; i<conts.size(); ++i){
+                    if(hiers[i][3]<0){
+                        Scalar color = Scalar(150, 150, 150);
+                        drawContours(detectedZone, conts, i, color, 2, 8, hiers, 0, Point());
+                    }
+                    if(maxCurve >= 0){
+                        drawContours(detectedZone, conts, maxCurve, Scalar(0,0,255), 2, 1, hiers, 0, Point());
+                    }
+                }
+                for(int i=0; i<ints.size(); ++i){
+                    if(true)
+                        circle(detectedZone, ints[i],*(params[1].paramAddress),Scalar(0,255,0),0);
+                }
+                for(int i=0; i<_ints.size(); ++i){
+                    if(true)
+                        circle(detectedZone, _ints[i],*(params[1].paramAddress),Scalar(255,0,0),0);
+                }
+                rectangle(detectedZone,zone, Scalar(255,0,0),1);
+            }
+            return detectedZone;
+        });
+        return;
+    }
+
     void getGraphArea(vector<Point> intersects, Size picSize, vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect &zone){
             Point center(picSize.width/2,picSize.height/2);
             Size picDims = picSize;
