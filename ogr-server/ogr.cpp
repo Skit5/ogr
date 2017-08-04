@@ -72,9 +72,6 @@ namespace ogr{
 
         /// Extraction du masque de fond
         ///     et nettoyage du masque des arêtes
-        vector<vector<Point>> contClean;
-        vector<Vec4i> hierClean;
-        filterCurveBg(hsvSplitted,contours, hierarchy, contClean, hierClean, horizontales, verticales, graphArea);
         getBgMask(hsvSplitted, edgesPicture, bgMask, noQuadEdges, graphArea, verticales, horizontales);
         /*gaussian3 distribBg = getMaxColor(hsvPicture, graphArea);
 
@@ -87,8 +84,14 @@ namespace ogr{
         //getColors(hsvSplitted, graphArea, distribColors, bgMask);
         //Mat maskColor;
         getColors(hsvSplitted, graphArea, distribColors, maskColor, bgMask);
+
+        vector<vector<Point>> contClean;
+        vector<Vec4i> hierClean;
+        filterCurveBg(hsvSplitted,contours, hierarchy, contClean, hierClean, horizontales, verticales, graphArea);
+
+        vector<vector<Point>> contColor = {};
         vector<int> hierColor = {};
-        sortCurvesByColor(hsvSplitted[0], contClean, hierClean, distribColors, hierColor);
+        sortCurvesByColor(hsvSplitted[0], contClean, hierClean, distribColors, contColor, hierColor);
         //// Classification des arêtes
         //sortEdges(edgesPicture,hsvPicture, graphArea, distribColors,
         //    edgeClusterIndices, {distribBg, distribLines});

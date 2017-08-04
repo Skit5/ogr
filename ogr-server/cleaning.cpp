@@ -521,7 +521,7 @@ namespace ogr{
     void filterCurveBg(Mat hsv[], vector<vector<Point>> contours, vector<Vec4i>hierarchy, vector<vector<Point>> &contClean,
         vector<Vec4i> &hierClean, vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect graphArea){
 
-        int thresh = 70;
+        int thresh = 100;
         vector<Rect> lines = {};
         for(int i=0; i<horizontales.size(); ++i){
             Rect _r;
@@ -597,11 +597,29 @@ namespace ogr{
         for(int i=0; i<cont.size(); ++i){
             vector<Point> branch = cont[i];
             double votes = 0;
+            bool inlineBranchFlag = true;
             for(int j=0; j<branch.size(); ++j){
                 //cout<<"hie "<<i<<" s "<<cont.size()<<endl;
                 bool inlineFlag = false;
                 for(int k=0; k<lines.size() && !inlineFlag; ++k){
                     if(lines[k].contains(branch[j])){
+                        inlineFlag = true;
+                    }
+                }
+                inlineBranchFlag *= inlineFlag;
+            }
+            if(inlineBranchFlag){
+                cont.erase(cont.begin()+i);
+                hier.erase(hier.begin()+i);
+                --i;
+            }
+
+                /*for(int k=0; k<lines.size() && !inlineFlag; ++k){
+                    bool pointIn = lines[k].contains(branch[j]), lineIn = true;
+                    if(j > 0)
+                        lineIn = lines[k].contains(branch[j-1]);
+
+                    if(pointIn){
                         cont[i].erase(cont[i].begin()+j);
                         branch.erase(branch.begin()+j);
                         --j;
@@ -614,7 +632,7 @@ namespace ogr{
                 cont.erase(cont.begin()+i);
                 hier.erase(hier.begin()+i);
                 --i;
-            }
+            }*/
         }
         return;
     }
@@ -626,19 +644,21 @@ namespace ogr{
     ****************************/
 
     void sortCurvesByColor(Mat hPic, vector<vector<Point>> cont, vector<Vec4i> hier, vector<gaussianCurve> colors,
-        vector<int> &hierColor){
-
+        vector<vector<Point>> &contColor, vector<int> &hierColor){
+        int eps = 3;
         vector<param2optimize> params{
+            {&eps,"Epsilon",100}
         };
-        optimizer(params, [=, &hierColor]()->Mat{
+        optimizer(params, [=, &contColor, &hierColor]()->Mat{
             Mat sortedPic;
+            contColor = vector<vector<Point>>(cont);
             hierColor = vector<int>(cont.size());
             if(DEBUG)
                 sortedPic = Mat::zeros(hPic.size(), CV_8UC3);
 
-            for(int i=0; i<cont.size(); ++i){
-                cout<<"0"<<endl;
-                vector<Point> branch = cont[i];
+            for(int i=0; i<contColor.size(); ++i){
+                approxPolyDP(Mat(contColor[i]), contColor[i], *(params[0].paramAddress), true);
+                vector<Point> branch = contColor[i];
                 vector<int> _hCol(colors.size());
                 int _max = -1;
                 for(int j=0; j<branch.size(); ++j){
@@ -646,14 +666,12 @@ namespace ogr{
                 cout<<_p<<" "<<hPic.size()<<endl;
                     int _c = hPic.at<uchar>(_p.y,_p.x),
                         _kC = -1;
-                    cout<<"1"<<endl;
                     for(int k=0; (k<colors.size()) && (_kC<0); ++k){
                         gaussianCurve _gC = colors[k];
                         int _dist = min(abs(_c-_gC.mean),abs(180+_c-_gC.mean));
                         if(_dist<=_gC.sigma)
                             _kC = k;
                     }
-                    cout<<"2"<<endl;
                     if(_kC>=0){
                         ++_hCol[_kC];
                         if(_hCol[_kC]>_hCol[_max])
@@ -661,9 +679,7 @@ namespace ogr{
                     }
                 }
                 hierColor[i] = _max;
-                cout<<"3"<<endl;
             }
-            cout<<"4"<<endl;
 
             /// En mode debug,
             if(DEBUG){
