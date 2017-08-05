@@ -521,7 +521,8 @@ namespace ogr{
     void filterCurveBg(Mat hsv[], vector<vector<Point>> contours, vector<Vec4i>hierarchy, vector<vector<Point>> &contClean,
         vector<Vec4i> &hierClean, vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect graphArea){
 
-        int thresh = 100;
+        int thresh = 100, eps = 3, reps = 1, aeps = 1;
+        RNG rng(12345);
         vector<Rect> lines = {};
         for(int i=0; i<horizontales.size(); ++i){
             Rect _r;
@@ -547,24 +548,63 @@ namespace ogr{
         }
 
         vector<param2optimize> params{
-            {&thresh,"SeuilZone",100}
+            {&thresh,"SeuilZone",100},
+            {&eps,"Eps",50},
+            {&aeps,"AEps",100},
+            {&reps,"REps",100}
         };
-        optimizer(params, [=, &hierClean, &contClean]()->Mat{
-            Mat filteredPic;
-            RNG rng(12345);
+        optimizer(params, [=, &hierClean, &contClean, &rng]()->Mat{
+            Mat filteredPic, detectedPic;
             contClean = contours;
             hierClean = hierarchy;
+            vector<vector<Point>> _conts = contours;
+            vector<Vec4i> _hier = hierarchy;
 
             if(DEBUG)
                 filteredPic = Mat::zeros(hsv[0].size(), CV_8UC3);
+            detectedPic = Mat::zeros(hsv[0].size(), CV_8UC3);
             filterZone(contClean,hierClean,graphArea,*(params[0].paramAddress));
-            filterLines(contClean,hierClean,lines,*(params[0].paramAddress));
+            filterInterest(contClean,hierClean,lines,*(params[0].paramAddress));
+
+            _conts = contClean;
+            _hier = hierClean;
+
+            //filterSweep(contClean, hierClean,graphArea);
+            filterLines(_conts,_hier,lines,*(params[1].paramAddress));
+            vector<Vec4f> _lines(_conts.size());
+            if(_conts.size()>1){
+                for(int i = 0 ; i < _conts.size(); ++i){
+                    fitLine(_conts[i],_lines[i], CV_DIST_L2, _conts[i][0].x, *(params[2].paramAddress)/100,*(params[3].paramAddress)/100);
+                }
+            }
+            //getEdgeLines(Mat(contClean), _lines);
+
 
             /// En mode debug,
             if(DEBUG){
                 for(int i=0; i<contClean.size(); ++i){
                     Scalar color = Scalar(rng.uniform(0,255), rng.uniform(0,255), rng.uniform(0,255));
                     drawContours(filteredPic, contClean, i, color, 2, 8, hierClean, 0, Point());
+                    RotatedRect _bound = minAreaRect(contClean[i]);
+                    Point2f v[4];
+                    _bound.points(v);
+                    for(int b = 0 ; b < 4; ++b){
+                        line(filteredPic, v[b], v[(b+1)%4], color);
+                    }
+                }
+                for(int l = 0 ; l < _lines.size(); ++l){
+                    Vec4f _l = _lines[l];
+                    Scalar color = Scalar(rng.uniform(0,255), rng.uniform(0,255), rng.uniform(0,255));
+                    Rect box = boundingRect(_conts[l]);
+                    cout<<"prout "<<_l<<endl;
+                    Point a(box.x+box.width-1,
+                            round((box.width-_l[2])*_l[1]/_l[0])+_l[3]),
+                        b(box.x,
+                            round(-_l[2]*_l[1]/_l[0])+_l[3]);
+                    cout<<"a: "<<a<<" b: "<<b<<endl;
+                    line(filteredPic, a, b, color, 2);
+
+                    //line(filteredPic, Point(_l[0], _l[1]), Point(_l[2], _l[3]), Scalar(255,255,255), 2, CV_AA);
                 }
             }
             return filteredPic;
@@ -593,7 +633,7 @@ namespace ogr{
         return;
     }
 
-    void filterLines(vector<vector<Point>> &cont, vector<Vec4i> &hier, vector<Rect>lines, int threshold){
+    void filterInterest(vector<vector<Point>> &cont, vector<Vec4i> &hier, vector<Rect>lines, int threshold){
         for(int i=0; i<cont.size(); ++i){
             vector<Point> branch = cont[i];
             double votes = 0;
@@ -637,17 +677,77 @@ namespace ogr{
         return;
     }
 
+//    void getTendencies(vector<vector<Point>> &cont, vector<Vec4i> &hier,)
+
+    void filterSweep(vector<vector<Point>> &cont, vector<Vec4i> &hier, Rect zone, int threshold){
+        for(int i=0; i<cont.size(); ++i){
+            vector<Point> branch = cont[i];
+            approxPolyDP(Mat(branch), branch, threshold, true);
+            sort(branch.begin(), branch.end(),[](Point a, Point b){
+                return (a.x < b.x);
+            });
+
+            double votes = 0;
+            bool inlineBranchFlag = true;
+            for(int j=0; j<branch.size(); ++j){
+
+            }
+            cont[i] = branch;
+            //cout<<"hie "<<i<<" s "<<cont.size()<<endl;
+            /*if(cont[i].size()<1){
+                cont.erase(cont.begin()+i);
+                hier.erase(hier.begin()+i);
+                --i;
+            }*/
+        }
+        return;
+    }
+
+
+    void filterLines(vector<vector<Point>> &cont, vector<Vec4i> &hier, vector<Rect>lines, int threshold){
+        for(int i=0; i<cont.size(); ++i){
+            vector<Point> branch = cont[i];
+            approxPolyDP(Mat(branch), branch, threshold, true);
+            sort(branch.begin(), branch.end(),[](Point a, Point b){
+                return (a.x < b.x);
+            });
+
+            double votes = 0;
+            bool inlineBranchFlag = true;
+            for(int j=0; j<branch.size(); ++j){
+                //cout<<"hie "<<i<<" s "<<cont.size()<<endl;
+                bool inlineFlag = false;
+                for(int k=0; k<lines.size() && !inlineFlag; ++k){
+                    if(lines[k].contains(branch[j])){
+                        //branch.erase(branch.begin()+j);
+                        //--j;
+                        inlineFlag = true;
+                    }
+                }
+            }
+            cont[i] = branch;
+            //cout<<"hie "<<i<<" s "<<cont.size()<<endl;
+            /*if(cont[i].size()<1){
+                cont.erase(cont.begin()+i);
+                hier.erase(hier.begin()+i);
+                --i;
+            }*/
+        }
+        return;
+    }
+
 
 
     /****************************
     //  MERGE DES COURBES
     ****************************/
 
-    void sortCurvesByColor(Mat hPic, vector<vector<Point>> cont, vector<Vec4i> hier, vector<gaussianCurve> colors,
+    void sortCurvesByColor(Mat hPic, Rect zone, vector<vector<Point>> cont, vector<Vec4i> hier, vector<gaussianCurve> colors,
         vector<vector<Point>> &contColor, vector<int> &hierColor){
-        int eps = 3;
+        int eps = 3, errMargin = 4;
         vector<param2optimize> params{
-            {&eps,"Epsilon",100}
+            {&eps,"Epsilon",100},
+            {&errMargin,"Line Width",20}
         };
         optimizer(params, [=, &contColor, &hierColor]()->Mat{
             Mat sortedPic;
@@ -655,6 +755,12 @@ namespace ogr{
             hierColor = vector<int>(cont.size());
             if(DEBUG)
                 sortedPic = Mat::zeros(hPic.size(), CV_8UC3);
+
+            for(int x=zone.x; x<zone.width; ++x){
+                for(int y=zone.y; y<zone.height; ++y){
+
+                }
+            }
 
             for(int i=0; i<contColor.size(); ++i){
                 approxPolyDP(Mat(contColor[i]), contColor[i], *(params[0].paramAddress), true);

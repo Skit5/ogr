@@ -275,8 +275,9 @@ namespace ogr{
         vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect graphArea);
     void filterZone(vector<vector<Point>> &cont, vector<Vec4i> &hier, Rect zone, int threshold);
     void filterLines(vector<vector<Point>> &cont, vector<Vec4i> &hier, vector<Rect>lines, int );
+    void filterInterest(vector<vector<Point>> &cont, vector<Vec4i> &hier, vector<Rect>lines, int );
 
-    void sortCurvesByColor(Mat, vector<vector<Point>> cont, vector<Vec4i> hier, vector<gaussianCurve> colors,
+    void sortCurvesByColor(Mat,Rect, vector<vector<Point>> cont, vector<Vec4i> hier, vector<gaussianCurve> colors,
         vector<vector<Point>> &, vector<int> &hierColor);
 
 

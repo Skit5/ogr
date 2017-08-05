@@ -91,7 +91,7 @@ namespace ogr{
 
         vector<vector<Point>> contColor = {};
         vector<int> hierColor = {};
-        sortCurvesByColor(hsvSplitted[0], contClean, hierClean, distribColors, contColor, hierColor);
+        sortCurvesByColor(hsvSplitted[0], graphArea, contClean, hierClean, distribColors, contColor, hierColor);
         //// Classification des arêtes
         //sortEdges(edgesPicture,hsvPicture, graphArea, distribColors,
         //    edgeClusterIndices, {distribBg, distribLines});
