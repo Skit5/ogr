@@ -521,7 +521,7 @@ namespace ogr{
     void filterCurveBg(Mat hsv[], vector<vector<Point>> contours, vector<Vec4i>hierarchy, vector<vector<Point>> &contClean,
         vector<Vec4i> &hierClean, vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect graphArea){
 
-        int thresh = 100, eps = 3, reps = 1, aeps = 1;
+        int thresh = 100, eps = 3, reps = 1, aeps = 1, slider = 1;
         RNG rng(12345);
         vector<Rect> lines = {};
         for(int i=0; i<horizontales.size(); ++i){
@@ -546,12 +546,16 @@ namespace ogr{
             _r.width = _v[3];
             lines.push_back(_r);
         }
+        vector<Scalar> colors;
+        for(int c = 0; c<contours.size(); ++c)
+            colors.push_back(Scalar(rng.uniform(0,255), rng.uniform(0,255), rng.uniform(0,255)));
 
         vector<param2optimize> params{
             {&thresh,"SeuilZone",100},
             {&eps,"Eps",50},
             {&aeps,"AEps",100},
-            {&reps,"REps",100}
+            {&reps,"REps",100},
+            {&slider,"",hsv[0].cols}
         };
         optimizer(params, [=, &hierClean, &contClean, &rng]()->Mat{
             Mat filteredPic, detectedPic;
@@ -574,7 +578,7 @@ namespace ogr{
             vector<Vec4f> _lines(_conts.size());
             if(_conts.size()>1){
                 for(int i = 0 ; i < _conts.size(); ++i){
-                    fitLine(_conts[i],_lines[i], CV_DIST_L2, _conts[i][0].x, *(params[2].paramAddress)/100,*(params[3].paramAddress)/100);
+                    fitLine(_conts[i], _lines[i], CV_DIST_L2, 0, *(params[2].paramAddress)/100,*(params[3].paramAddress)/100);
                 }
             }
             //getEdgeLines(Mat(contClean), _lines);
@@ -583,30 +587,97 @@ namespace ogr{
             /// En mode debug,
             if(DEBUG){
                 for(int i=0; i<contClean.size(); ++i){
-                    Scalar color = Scalar(rng.uniform(0,255), rng.uniform(0,255), rng.uniform(0,255));
-                    drawContours(filteredPic, contClean, i, color, 2, 8, hierClean, 0, Point());
+                    drawContours(filteredPic, contClean, i, colors[i], 2, 8, hierClean, 0, Point());
                     RotatedRect _bound = minAreaRect(contClean[i]);
                     Point2f v[4];
                     _bound.points(v);
                     for(int b = 0 ; b < 4; ++b){
-                        line(filteredPic, v[b], v[(b+1)%4], color);
+                        line(detectedPic, v[b], v[(b+1)%4], colors[i]);
                     }
                 }
-                for(int l = 0 ; l < _lines.size(); ++l){
+                for(int l = 0 ; l < _conts.size(); ++l){
                     Vec4f _l = _lines[l];
-                    Scalar color = Scalar(rng.uniform(0,255), rng.uniform(0,255), rng.uniform(0,255));
                     Rect box = boundingRect(_conts[l]);
-                    cout<<"prout "<<_l<<endl;
-                    Point a(box.x+box.width-1,
-                            round((box.width-_l[2])*_l[1]/_l[0])+_l[3]),
-                        b(box.x,
-                            round(-_l[2]*_l[1]/_l[0])+_l[3]);
-                    cout<<"a: "<<a<<" b: "<<b<<endl;
-                    line(filteredPic, a, b, color, 2);
+                    Point a, b, _bias(box.x, box.y), _t((int)_l[2]-box.x, (int)_l[3]-box.y);
+                    float m = _l[1]/_l[0],
+                        p = _l[3] - m*_l[2];
+                    a = Point(box.x, m*box.x+p),
+                    b = Point(box.x+box.width-1, m*(box.x+box.width-1)+p);
+
+                    if(a.y < box.y)
+                        a = Point((box.y-p)/m, box.y);
+                    if(a.y >= box.y+box.height)
+                        a = Point((box.y+box.height-1-p)/m, box.y+box.height-1);
+                    if(b.y < box.y)
+                        b = Point((box.y-p)/m, box.y);
+                    if(b.y >= box.y+box.height)
+                        b = Point((box.y+box.height-1-p)/m, box.y+box.height-1);
+
+
+                    /*int _tX = round(_t.x / _l[0]),
+                        _tY = round(_t.y / _l[1]);
+                    if(abs(_tX) < abs(_tY)){
+                        if(_tY < 0){
+                            a = Point(round((box.height-1-p)/m) ,box.height-1);
+                        }
+                        else{
+                            a = Point(round(-p/m),0);
+                        }
+                    }else{
+                        a = Point(0, round(p));
+                    }*/
+                    /*if(p < 0){
+                        a = Point(round(-p/m),0);
+                    }else if(p > box.height-1){
+                        a = Point(round((box.height-1-p)/m) ,box.height-1);
+                    }else{
+                        a = Point(0, round(p));
+                    }
+                    b = Point(box.width-1, m*(box.width-1)_t)
+
+                    if(m*(box.width-1-a.x)+a.y < 0 ){
+                        b = Point(round(-p/m),0);
+                    }else if(m*(box.width-1-a.x)+a.y > box.height){
+                        b = Point(round((box.height-1-p)/m), box.height-1);
+                    }else{
+                        b = Point(box.width-1, round(m*(box.width-1)+p));
+                    }*/
+                    /*Point a(
+                        box.x,
+                        (int)round(m*box.x + p) + box.y
+                    ),
+                    b(
+                        box.x + box.width,
+                        (int)round(m*(box.x+box.width) + p) + box.y
+                    );*/
+                    //a += _bias;
+                    //b += _bias;
+
+                    //cout<<"a: "<<a<<" b: "<<b<<endl;
+
+                    /*Point a(min(box.width-1, round((box.height-1-p)/m))+box.x,
+                            max((int)round(m*(box.width-1)+p)), box.y+box.height),
+                        b(max(0,round(-p/m))+box.x,
+                            max(round(p),box.y));*/
+                    //cout<<"a: "<<a<<" b: "<<b<<endl;
+                    line(detectedPic, a, b, colors[l], 2);
 
                     //line(filteredPic, Point(_l[0], _l[1]), Point(_l[2], _l[3]), Scalar(255,255,255), 2, CV_AA);
                 }
+                int slidy = min(*(params[4].paramAddress),hsv[0].cols-1);
+                if(slidy > 0){
+                    Rect filtZ(0, 0, slidy, hsv[0].rows),
+                        detecZ(slidy, 0, hsv[0].cols-slidy, hsv[0].rows);
+                    detectedPic = Mat(detectedPic, detecZ);
+                    filteredPic = Mat(filteredPic, filtZ);
+                    hconcat(filteredPic, detectedPic, filteredPic);
+                }else{
+                    filteredPic = detectedPic;
+                }
+                //filteredPic.push_back(detectedPic);
+
             }
+            //return detectedPic;
             return filteredPic;
         });
 
