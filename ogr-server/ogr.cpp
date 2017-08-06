@@ -85,13 +85,15 @@ namespace ogr{
         //Mat maskColor;
         getColors(hsvSplitted, graphArea, distribColors, maskColor, bgMask);
 
-        vector<vector<Point>> contClean;
-        vector<Vec4i> hierClean;
-        filterCurveBg(hsvSplitted,contours, hierarchy, contClean, hierClean, horizontales, verticales, graphArea);
+        vector<vector<Point>> contClean, contCleaner;
+        vector<Vec4i> hierClean, hierCleaner;
+        vector<vector<Point>> approx;
+        filterCurveBg(hsvSplitted,contours, hierarchy, contClean, hierClean, contCleaner, hierCleaner,
+            approx, horizontales, verticales, graphArea);
 
         vector<vector<Point>> contColor = {};
         vector<int> hierColor = {};
-        sortCurvesByColor(hsvSplitted[0], graphArea, contClean, hierClean, distribColors, contColor, hierColor);
+        sortCurvesByColor(hsvSplitted[0], graphArea, contCleaner, hierCleaner, approx, distribColors, contColor, hierColor);
         //// Classification des arêtes
         //sortEdges(edgesPicture,hsvPicture, graphArea, distribColors,
         //    edgeClusterIndices, {distribBg, distribLines});

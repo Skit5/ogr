@@ -519,7 +519,8 @@ namespace ogr{
     //  FILTRAGE DES COURBES
     ****************************/
     void filterCurveBg(Mat hsv[], vector<vector<Point>> contours, vector<Vec4i>hierarchy, vector<vector<Point>> &contClean,
-        vector<Vec4i> &hierClean, vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect graphArea){
+        vector<Vec4i> &hierClean, vector<vector<Point>> &contCleaner, vector<Vec4i> &hierCleaner,
+        vector<vector<Point>> &approx, vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect graphArea){
 
         int thresh = 100, eps = 3, reps = 1, aeps = 1, slider = 1;
         RNG rng(12345);
@@ -557,7 +558,7 @@ namespace ogr{
             {&reps,"REps",100},
             {&slider,"",hsv[0].cols}
         };
-        optimizer(params, [=, &hierClean, &contClean, &rng]()->Mat{
+        optimizer(params, [=, &hierClean, &contClean, &hierCleaner, &contCleaner, &approx]()->Mat{
             Mat filteredPic, detectedPic;
             contClean = contours;
             hierClean = hierarchy;
@@ -575,30 +576,13 @@ namespace ogr{
 
             //filterSweep(contClean, hierClean,graphArea);
             filterLines(_conts,_hier,lines,*(params[1].paramAddress));
-            vector<Vec4f> _lines(_conts.size());
+            approx = vector<vector<Point>>(_conts.size());
             if(_conts.size()>1){
                 for(int i = 0 ; i < _conts.size(); ++i){
-                    fitLine(_conts[i], _lines[i], CV_DIST_L2, 0, *(params[2].paramAddress)/100,*(params[3].paramAddress)/100);
-                }
-            }
-            //getEdgeLines(Mat(contClean), _lines);
-
-
-            /// En mode debug,
-            if(DEBUG){
-                for(int i=0; i<contClean.size(); ++i){
-                    drawContours(filteredPic, contClean, i, colors[i], 2, 8, hierClean, 0, Point());
-                    RotatedRect _bound = minAreaRect(contClean[i]);
-                    Point2f v[4];
-                    _bound.points(v);
-                    for(int b = 0 ; b < 4; ++b){
-                        line(detectedPic, v[b], v[(b+1)%4], colors[i]);
-                    }
-                }
-                for(int l = 0 ; l < _conts.size(); ++l){
-                    Vec4f _l = _lines[l];
-                    Rect box = boundingRect(_conts[l]);
-                    Point a, b, _bias(box.x, box.y), _t((int)_l[2]-box.x, (int)_l[3]-box.y);
+                    Vec4f _l;
+                    fitLine(_conts[i], _l, CV_DIST_L2, 0, *(params[2].paramAddress)/100,*(params[3].paramAddress)/100);
+                    Rect box = boundingRect(_conts[i]);
+                    Point a, b;
                     float m = _l[1]/_l[0],
                         p = _l[3] - m*_l[2];
                     a = Point(box.x, m*box.x+p),
@@ -613,56 +597,25 @@ namespace ogr{
                     if(b.y >= box.y+box.height)
                         b = Point((box.y+box.height-1-p)/m, box.y+box.height-1);
 
+                    approx[i] ={a,b};
+                    if(DEBUG)
+                        line(detectedPic, a, b, colors[i], 2);
+                }
+            }
+            contCleaner = _conts;
+            hierCleaner = _hier;
 
-                    /*int _tX = round(_t.x / _l[0]),
-                        _tY = round(_t.y / _l[1]);
-                    if(abs(_tX) < abs(_tY)){
-                        if(_tY < 0){
-                            a = Point(round((box.height-1-p)/m) ,box.height-1);
-                        }
-                        else{
-                            a = Point(round(-p/m),0);
-                        }
-                    }else{
-                        a = Point(0, round(p));
-                    }*/
-                    /*if(p < 0){
-                        a = Point(round(-p/m),0);
-                    }else if(p > box.height-1){
-                        a = Point(round((box.height-1-p)/m) ,box.height-1);
-                    }else{
-                        a = Point(0, round(p));
+
+            /// En mode debug,
+            if(DEBUG){
+                for(int i=0; i<contClean.size(); ++i){
+                    drawContours(filteredPic, contClean, i, colors[i], 2, 8, hierClean, 0, Point());
+                    RotatedRect _bound = minAreaRect(contClean[i]);
+                    Point2f v[4];
+                    _bound.points(v);
+                    for(int b = 0 ; b < 4; ++b){
+                        line(detectedPic, v[b], v[(b+1)%4], colors[i]);
                     }
-                    b = Point(box.width-1, m*(box.width-1)_t)
-
-                    if(m*(box.width-1-a.x)+a.y < 0 ){
-                        b = Point(round(-p/m),0);
-                    }else if(m*(box.width-1-a.x)+a.y > box.height){
-                        b = Point(round((box.height-1-p)/m), box.height-1);
-                    }else{
-                        b = Point(box.width-1, round(m*(box.width-1)+p));
-                    }*/
-                    /*Point a(
-                        box.x,
-                        (int)round(m*box.x + p) + box.y
-                    ),
-                    b(
-                        box.x + box.width,
-                        (int)round(m*(box.x+box.width) + p) + box.y
-                    );*/
-                    //a += _bias;
-                    //b += _bias;
-
-                    //cout<<"a: "<<a<<" b: "<<b<<endl;
-
-                    /*Point a(min(box.width-1, round((box.height-1-p)/m))+box.x,
-                            max((int)round(m*(box.width-1)+p)), box.y+box.height),
-                        b(max(0,round(-p/m))+box.x,
-                            max(round(p),box.y));*/
-                    //cout<<"a: "<<a<<" b: "<<b<<endl;
-                    line(detectedPic, a, b, colors[l], 2);
-
-                    //line(filteredPic, Point(_l[0], _l[1]), Point(_l[2], _l[3]), Scalar(255,255,255), 2, CV_AA);
                 }
                 int slidy = min(*(params[4].paramAddress),hsv[0].cols-1);
                 if(slidy > 0){
@@ -674,10 +627,8 @@ namespace ogr{
                 }else{
                     filteredPic = detectedPic;
                 }
-                //filteredPic.push_back(detectedPic);
 
             }
-            //return detectedPic;
             return filteredPic;
         });
 
@@ -813,8 +764,8 @@ namespace ogr{
     //  MERGE DES COURBES
     ****************************/
 
-    void sortCurvesByColor(Mat hPic, Rect zone, vector<vector<Point>> cont, vector<Vec4i> hier, vector<gaussianCurve> colors,
-        vector<vector<Point>> &contColor, vector<int> &hierColor){
+    void sortCurvesByColor(Mat hPic, Rect zone, vector<vector<Point>> cont, vector<Vec4i> hier, vector<vector<Point>> approx,
+        vector<gaussianCurve> colors, vector<vector<Point>> &contColor, vector<int> &hierColor){
         int eps = 3, errMargin = 4;
         vector<param2optimize> params{
             {&eps,"Epsilon",100},
@@ -827,20 +778,19 @@ namespace ogr{
             if(DEBUG)
                 sortedPic = Mat::zeros(hPic.size(), CV_8UC3);
 
-            for(int x=zone.x; x<zone.width; ++x){
+            /*for(int x=zone.x; x<zone.width; ++x){
                 for(int y=zone.y; y<zone.height; ++y){
 
                 }
-            }
+            }*/
 
-            for(int i=0; i<contColor.size(); ++i){
-                approxPolyDP(Mat(contColor[i]), contColor[i], *(params[0].paramAddress), true);
-                vector<Point> branch = contColor[i];
+            for(int i=0; i<cont.size(); ++i){
+                //approxPolyDP(Mat(contColor[i]), contColor[i], *(params[0].paramAddress), true);
+                vector<Point> branch = cont[i];
                 vector<int> _hCol(colors.size());
                 int _max = -1;
                 for(int j=0; j<branch.size(); ++j){
                     Point _p = branch[j];
-                cout<<_p<<" "<<hPic.size()<<endl;
                     int _c = hPic.at<uchar>(_p.y,_p.x),
                         _kC = -1;
                     for(int k=0; (k<colors.size()) && (_kC<0); ++k){
@@ -855,16 +805,22 @@ namespace ogr{
                             _max = _kC;
                     }
                 }
-                hierColor[i] = _max;
+                if(_hCol[_max]>=(branch.size()-1)/2)
+                    hierColor[i] = _max;
+                else
+                    hierColor[i] = -1;
             }
 
             /// En mode debug,
             if(DEBUG){
                 for(int i=0; i<cont.size(); ++i){
+                    Scalar color(0,255,255);
                     if(hierColor[i]>=0){
-                        Scalar color = Scalar(colors[hierColor[i]].mean,255,255);
-                        drawContours(sortedPic, cont, i, color, 2, 8, hier, 0, Point());
+                        color = Scalar(colors[hierColor[i]].mean,255,255);
                     }
+
+                    line(sortedPic, approx[i][0], approx[i][1], color, 2);
+                    //drawContours(sortedPic, cont, i, color, 2, 8, hier, 0, Point());
                 }
                 cvtColor(sortedPic, sortedPic, CV_HSV2BGR);
             }

@@ -271,13 +271,16 @@ namespace ogr{
     void getStrokes(Mat edgePic, vector<vector<Point>> &conts, vector<Vec4i> &hierarch);
 
 
-    void filterCurveBg(Mat[],vector<vector<Point>> contours, vector<Vec4i>hierarchy, vector<vector<Point>> &contClean, vector<Vec4i> &hierClean,
-        vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect graphArea);
+    //void filterCurveBg(Mat[],vector<vector<Point>> contours, vector<Vec4i>hierarchy, vector<vector<Point>> &contClean, vector<Vec4i> &hierClean,
+    //    vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect graphArea);
+    void filterCurveBg(Mat hsv[], vector<vector<Point>> contours, vector<Vec4i>hierarchy, vector<vector<Point>> &contClean,
+        vector<Vec4i> &hierClean, vector<vector<Point>> &contCleaner, vector<Vec4i> &hierCleaner,
+        vector<vector<Point>> &approx, vector<Vec4i> horizontales, vector<Vec4i> verticales, Rect graphArea);
     void filterZone(vector<vector<Point>> &cont, vector<Vec4i> &hier, Rect zone, int threshold);
     void filterLines(vector<vector<Point>> &cont, vector<Vec4i> &hier, vector<Rect>lines, int );
     void filterInterest(vector<vector<Point>> &cont, vector<Vec4i> &hier, vector<Rect>lines, int );
 
-    void sortCurvesByColor(Mat,Rect, vector<vector<Point>> cont, vector<Vec4i> hier, vector<gaussianCurve> colors,
+    void sortCurvesByColor(Mat,Rect, vector<vector<Point>> cont, vector<Vec4i> hier, vector<vector<Point>>, vector<gaussianCurve> colors,
         vector<vector<Point>> &, vector<int> &hierColor);
 
 
