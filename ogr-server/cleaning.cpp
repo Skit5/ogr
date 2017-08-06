@@ -784,8 +784,11 @@ namespace ogr{
                 }
             }*/
 
+            vector<vector<int>> connecs(cont.size());
             for(int i=0; i<cont.size(); ++i){
-                //approxPolyDP(Mat(contColor[i]), contColor[i], *(params[0].paramAddress), true);
+
+                connecs[i].push_back(i);
+
                 vector<Point> branch = cont[i];
                 vector<int> _hCol(colors.size());
                 int _max = -1;
@@ -811,6 +814,55 @@ namespace ogr{
                     hierColor[i] = -1;
             }
 
+            //// Init N clusters of the N indices
+            /// Init maxClusters for every colors
+            /// for each color in colors
+            ///     for each curve in curves
+            ///         if curve.color is color
+            ///             for each line in curve
+            ///                 for each next curve in curves
+            ///                     init isCut as False
+            ///                     for each other line in next curve
+            ///                         if line cuts other line
+            ///                             isCut is True
+            ///                     if isCut
+            ///                         append next curve to curve
+            ///                         remove next curve from curves
+            ///             if curve.size > color.curveMax.size
+            ///                 color.curveMax = curve
+            ///
+            /// bool cuts(line a, line b lineWidth)
+            ///     init isCut as False
+            ///     if line a.start.x is in [line b.start.x - lineWidth :line b.end.x + lineWidth]
+            ///         OR line b.start.x is in [line a.start.x - lineWidth :line a.end.x + lineWidth]
+            ///         start is max of line b.start.x and line a.start.x - lineWidth
+            ///         end is min of line b.end.x and line a.end.x + lineWidth
+            ///         startA is line a(start), endA is line a(end)
+            ///         startB is line b(start), endB is line b(end)
+            ///         if sign(startA - startB) != sign(endA - endB)
+            ///             isCut is True
+            ///     return isCut
+            for(int c=0; c<connecs.size(); ++c){
+                for(int l=0; l<connecs[c]; ++l){
+                    int currentInd = connecs[c][l], clusterMaxInd = -1, clusterMaxSize = -1;
+                    Vec4i currentLine = Vec4i(approx[currentInd][0].x,approx[currentInd][0].y,approx[currentInd][1].x,approx[currentInd][1].y);
+                    for(int a=c; a<connecs.size() && !isOwnd; ++a){
+                        bool isCut = false;
+                        for(int b=0; b<connecs[a].size() && !isCut; ++b){
+                            int testedInd = connecs[a][b];
+                            Vec4i testedLine = Vec4i(approx[testedInd][0].x,approx[testedInd][0].y,approx[testedInd][1].x,approx[testedInd][1].y);
+                            isCut = cut(currentLine, testedLine, hierColor[currentInd], hierColor[testedInd]),*(params[1].paramAddress));
+                        }
+                        if(isCut){
+                            connecs[c].push_back(connecs[a]);
+                            connecs.erase(connecs.begin()+a);
+                        }
+
+                    }
+                }
+            }
+
+
             /// En mode debug,
             if(DEBUG){
                 for(int i=0; i<cont.size(); ++i){
@@ -819,7 +871,7 @@ namespace ogr{
                         color = Scalar(colors[hierColor[i]].mean,255,255);
                     }
 
-                    line(sortedPic, approx[i][0], approx[i][1], color, 2);
+                    line(sortedPic, approx[i][0], approx[i][1], color, *(params[1].paramAddress));
                     //drawContours(sortedPic, cont, i, color, 2, 8, hier, 0, Point());
                 }
                 cvtColor(sortedPic, sortedPic, CV_HSV2BGR);
