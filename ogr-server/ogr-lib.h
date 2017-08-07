@@ -286,6 +286,8 @@ namespace ogr{
 
     void detectCurves(vector<Mat> maskColors, vector<vector<Point>> &detectedCurves);
 
+    bool cuts(Vec4i a, Vec4i b, int w);
+
 
     /****** VECTORISATION ******/
 }

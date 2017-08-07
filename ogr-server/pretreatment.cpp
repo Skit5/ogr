@@ -572,6 +572,14 @@ namespace ogr{
                 if( h[0] >= v[1]-round(v[3]/2)
                     && h[0]<= v[2]+round(v[3]/2))
                     _inters.push_back(Point(v[0],h[0]));
+                /// On ajoute les extrémités
+                _inters.push_back(Point(v[0],v[1]));
+                _inters.push_back(Point(v[0],v[2]));
+                _inters.push_back(Point(h[1],h[0]));
+                _inters.push_back(Point(h[2],h[0]));
+                // Donne de meilleurs résultats lorsque les axes ne sont pas totalement définis
+                // Donne de mauvais résultats quand les caractères sont pris dans le contour externe
+                // Solution: chercher la continuité dans les horizontales et les verticales sur le masque des courbes
             }
         }
         if(DEBUG)

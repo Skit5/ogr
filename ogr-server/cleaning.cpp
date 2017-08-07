@@ -766,113 +766,136 @@ namespace ogr{
 
     void sortCurvesByColor(Mat hPic, Rect zone, vector<vector<Point>> cont, vector<Vec4i> hier, vector<vector<Point>> approx,
         vector<gaussianCurve> colors, vector<vector<Point>> &contColor, vector<int> &hierColor){
-        int eps = 3, errMargin = 4;
+        int xPos = 1, errMargin = 34;
+        hierColor = vector<int>(cont.size());
         vector<param2optimize> params{
-            {&eps,"Epsilon",100},
-            {&errMargin,"Line Width",20}
+            {&errMargin,"Line Width",50},
+            {&xPos,"",hPic.cols}
         };
-        optimizer(params, [=, &contColor, &hierColor]()->Mat{
-            Mat sortedPic;
-            contColor = vector<vector<Point>>(cont);
-            hierColor = vector<int>(cont.size());
+
+        for(int i=0; i<cont.size(); ++i){
+            vector<Point> branch = cont[i];
+            vector<int> _hCol(colors.size());
+            int _max = -1;
+            for(int j=0; j<branch.size(); ++j){
+                Point _p = branch[j];
+                int _c = hPic.at<uchar>(_p.y,_p.x),
+                    _kC = -1;
+                for(int k=0; (k<colors.size()) && (_kC<0); ++k){
+                    gaussianCurve _gC = colors[k];
+                    int _dist = min(abs(_c-_gC.mean),abs(180+_c-_gC.mean));
+                    if(_dist<=_gC.sigma)
+                        _kC = k;
+                }
+                if(_kC>=0){
+                    ++_hCol[_kC];
+                    if(_hCol[_kC]>_hCol[_max])
+                        _max = _kC;
+                }
+            }
+            if(_hCol[_max]>=(branch.size()-1)/2)
+                hierColor[i] = _max;
+            else
+                hierColor[i] = -1;
+        }
+
+        optimizer(params, [=]()->Mat{
+            Mat sortedPic, filteredPic;
             if(DEBUG)
                 sortedPic = Mat::zeros(hPic.size(), CV_8UC3);
+            filteredPic = Mat::zeros(hPic.size(), CV_8UC3);
 
-            /*for(int x=zone.x; x<zone.width; ++x){
-                for(int y=zone.y; y<zone.height; ++y){
 
-                }
-            }*/
-
-            vector<vector<int>> connecs(cont.size());
-            for(int i=0; i<cont.size(); ++i){
-
-                connecs[i].push_back(i);
-
-                vector<Point> branch = cont[i];
-                vector<int> _hCol(colors.size());
-                int _max = -1;
-                for(int j=0; j<branch.size(); ++j){
-                    Point _p = branch[j];
-                    int _c = hPic.at<uchar>(_p.y,_p.x),
-                        _kC = -1;
-                    for(int k=0; (k<colors.size()) && (_kC<0); ++k){
-                        gaussianCurve _gC = colors[k];
-                        int _dist = min(abs(_c-_gC.mean),abs(180+_c-_gC.mean));
-                        if(_dist<=_gC.sigma)
-                            _kC = k;
-                    }
-                    if(_kC>=0){
-                        ++_hCol[_kC];
-                        if(_hCol[_kC]>_hCol[_max])
-                            _max = _kC;
-                    }
-                }
-                if(_hCol[_max]>=(branch.size()-1)/2)
-                    hierColor[i] = _max;
-                else
-                    hierColor[i] = -1;
-            }
-
-            //// Init N clusters of the N indices
             /// Init maxClusters for every colors
-            /// for each color in colors
-            ///     for each curve in curves
-            ///         if curve.color is color
-            ///             for each line in curve
-            ///                 for each next curve in curves
-            ///                     init isCut as False
-            ///                     for each other line in next curve
-            ///                         if line cuts other line
-            ///                             isCut is True
-            ///                     if isCut
-            ///                         append next curve to curve
-            ///                         remove next curve from curves
-            ///             if curve.size > color.curveMax.size
-            ///                 color.curveMax = curve
+            /// Init visited marks
+            ///     for each line in lines
+            ///         Init color as line.color
+            ///         Init cluster
+            ///         append line to cluster
+            ///         for each other line in cluster
+            ///             for each next line in lines
+            ///                 if next line.color is color
+            ///                  AND next line is not marked as visited
+            ///                     if next line cuts other line
+            ///                         append next line to cluster
+            ///                         mark next line as visited
+            ///         if cluster.size > maxCluster[color]
+            ///             maxCluster[color] is cluster
             ///
-            /// bool cuts(line a, line b lineWidth)
+            /// bool cuts(line a, line b, lineWidth)
             ///     init isCut as False
             ///     if line a.start.x is in [line b.start.x - lineWidth :line b.end.x + lineWidth]
-            ///         OR line b.start.x is in [line a.start.x - lineWidth :line a.end.x + lineWidth]
+            ///      OR line b.start.x is in [line a.start.x - lineWidth :line a.end.x + lineWidth]
             ///         start is max of line b.start.x and line a.start.x - lineWidth
             ///         end is min of line b.end.x and line a.end.x + lineWidth
-            ///         startA is line a(start), endA is line a(end)
-            ///         startB is line b(start), endB is line b(end)
-            ///         if sign(startA - startB) != sign(endA - endB)
+            ///         A is [line a(start), line a(end)]
+            ///         B is [line b(start), line b(end)]
+            ///         if sign(A.start - B.start) != sign(A.end - B.end)
             ///             isCut is True
             ///     return isCut
-            for(int c=0; c<connecs.size(); ++c){
-                for(int l=0; l<connecs[c]; ++l){
-                    int currentInd = connecs[c][l], clusterMaxInd = -1, clusterMaxSize = -1;
-                    Vec4i currentLine = Vec4i(approx[currentInd][0].x,approx[currentInd][0].y,approx[currentInd][1].x,approx[currentInd][1].y);
-                    for(int a=c; a<connecs.size() && !isOwnd; ++a){
-                        bool isCut = false;
-                        for(int b=0; b<connecs[a].size() && !isCut; ++b){
-                            int testedInd = connecs[a][b];
-                            Vec4i testedLine = Vec4i(approx[testedInd][0].x,approx[testedInd][0].y,approx[testedInd][1].x,approx[testedInd][1].y);
-                            isCut = cut(currentLine, testedLine, hierColor[currentInd], hierColor[testedInd]),*(params[1].paramAddress));
+            vector<bool> _marked(approx.size());
+            for(int o=0; o<approx.size(); ++o)
+                _marked[o] = false;
+            vector<vector<int>> maxClusters(colors.size());
+            for(int l=0; l<approx.size(); ++l){
+                int color = hierColor[l];
+                while(color<0 && l<approx.size()-1){
+                    ++l;
+                    color = hierColor[l];
+                }
+                vector<int> cluster;
+                cluster.push_back(l);
+                _marked[l] = true;
+                Vec4i _line(
+                    approx[l][0].x,
+                    approx[l][0].y,
+                    approx[l][1].x,
+                    approx[l][1].y
+                );
+                for(int c=0; c<cluster.size(); ++c){
+                    for(int n=l; n<approx.size(); ++n){
+                        if(hierColor[n] == color && !_marked[n]){
+                            Vec4i _test(
+                                approx[n][0].x,
+                                approx[n][0].y,
+                                approx[n][1].x,
+                                approx[n][1].y
+                            );
+                            if(cuts(_line, _test, *(params[0].paramAddress))){
+                                cluster.push_back(n);
+                                _marked[n] = true;
+                            }
                         }
-                        if(isCut){
-                            connecs[c].push_back(connecs[a]);
-                            connecs.erase(connecs.begin()+a);
-                        }
-
                     }
                 }
-            }
 
+                if((cluster.size() > maxClusters[color].size()) && (color >= 0))
+                    maxClusters[color] = cluster;
+            }
 
             /// En mode debug,
             if(DEBUG){
-                for(int i=0; i<cont.size(); ++i){
-                    Scalar color(0,255,255);
-                    if(hierColor[i]>=0){
-                        color = Scalar(colors[hierColor[i]].mean,255,255);
+                for(int i=0; i<maxClusters.size(); ++i){
+                    vector<int> cluster = maxClusters[i];
+                    for(int j=0; j<cluster.size(); ++j){
+                        Scalar color(colors[hierColor[cluster[j]]].mean,255,255);
+                        int id = cluster[j];
+                        line(filteredPic, approx[id][0], approx[id][1], color, *(params[0].paramAddress));
                     }
 
-                    line(sortedPic, approx[i][0], approx[i][1], color, *(params[1].paramAddress));
                     //drawContours(sortedPic, cont, i, color, 2, 8, hier, 0, Point());
+                }
+                for(int i=0; i<approx.size(); ++i){
+                    Scalar color(colors[hierColor[i]].mean,255,255);
+                    line(sortedPic, approx[i][0], approx[i][1], color, *(params[0].paramAddress));
+                }
+                int slidy = min(*(params[1].paramAddress),hPic.cols-1);
+                if(slidy > 0){
+                    Rect filtZ(0, 0, slidy, hPic.rows),
+                        sortZ(slidy, 0, hPic.cols-slidy, hPic.rows);
+                    sortedPic = Mat(sortedPic, sortZ);
+                    filteredPic = Mat(filteredPic, filtZ);
+                    hconcat(filteredPic, sortedPic, sortedPic);
                 }
                 cvtColor(sortedPic, sortedPic, CV_HSV2BGR);
             }
@@ -884,16 +907,30 @@ namespace ogr{
 
     }
 
-    /*vector<Mat> getColorMasks(Mat hsvSplitted[], Mat edgedPicture, Rect workZone){
-        vector<Mat> colorMasks;
-        gaussianCurve backgroundColor, gridcolor;
-
-        return colorMasks;
+    bool cuts(Vec4i a, Vec4i b, int w){
+        bool isCut = false;
+        Vec4i _bias(-w,0,w,0);
+        Vec4i _a = a+_bias, _b = b+_bias;
+        function<int(Vec4i,int)> getY = [](Vec4i _l, int X){
+            float m = (_l[3] - _l[1]) / (_l[2] - _l[0]);
+            return round(_l[3]-m*(_l[2]-X));
+        };
+        if( (a[0]>=_b[0] && a[0]<=_b[2]) || (b[0]>=_a[0] && b[0]<=_a[2]) ){
+            bool aIsVert = (a[2]-a[0] == 0),
+                bIsVert = (b[2]-b[0]==0);
+            if(aIsVert || bIsVert){
+                if(aIsVert != bIsVert)
+                    isCut = true;
+            }else{
+                int _start = max(_a[0],_b[0]),
+                    _end = min(_a[2],_b[2]);
+                Vec4i A(_start, getY(a, _start),_end, getY(a, _end));
+                Vec4i B(_start, getY(b, _start),_end, getY(b, _end));
+                if( signbit(A[1]-B[1]) != signbit(A[3]-B[3]) ){
+                    isCut = true;
+                }
+            }
+        }
+        return true;
     }
-
-    gaussianCurve getBackgroundColor(Mat greyPicture, Rect workZone){
-        gaussianCurve bgColor;
-
-        return bgColor;
-    }*/
 }
