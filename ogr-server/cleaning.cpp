@@ -609,7 +609,7 @@ namespace ogr{
             /// En mode debug,
             if(DEBUG){
                 for(int i=0; i<contClean.size(); ++i){
-                    drawContours(filteredPic, contClean, i, colors[i], 2, 8, hierClean, 0, Point());
+                    drawContours(filteredPic, contClean, i, colors[i], 1, 8, hierClean, 0, Point());
                     RotatedRect _bound = minAreaRect(contClean[i]);
                     Point2f v[4];
                     _bound.points(v);
@@ -766,7 +766,7 @@ namespace ogr{
 
     void sortCurvesByColor(Mat hPic, Rect zone, vector<vector<Point>> cont, vector<Vec4i> hier, vector<vector<Point>> approx,
         vector<gaussianCurve> colors, vector<vector<Point>> &contColor, vector<int> &hierColor){
-        int xPos = 1, errMargin = 34;
+        int xPos = 200, errMargin = 4;
         hierColor = vector<int>(cont.size());
         vector<param2optimize> params{
             {&errMargin,"Line Width",50},
@@ -880,13 +880,29 @@ namespace ogr{
                     for(int j=0; j<cluster.size(); ++j){
                         Scalar color(colors[hierColor[cluster[j]]].mean,255,255);
                         int id = cluster[j];
-                        line(filteredPic, approx[id][0], approx[id][1], color, *(params[0].paramAddress));
+                        //line(filteredPic, approx[id][0], approx[id][1], color, *(params[0].paramAddress));
+                        //drawContours(filteredPic, cont, id, color, 1, 8, hier, 0, Point());
                     }
-
-                    //drawContours(sortedPic, cont, i, color, 2, 8, hier, 0, Point());
+                }
+                for(int a=0; a<cont.size(); ++a){
+                    for(int b=0; b<cont[a].size(); ++b){
+                        Point _t = cont[a][b];
+                        int _c = hPic.at<uchar>(_t.y,_t.x);
+                        for(int d=0; d<colors.size(); ++d){
+                            if(abs(_c+180-colors[d].mean)%180 <= colors[d].sigma)
+                                filteredPic.at<Vec3b>(_t.y, _t.x) = Vec3b(colors[d].mean, 255, 255);
+                        }
+                    }
                 }
                 for(int i=0; i<approx.size(); ++i){
-                    Scalar color(colors[hierColor[i]].mean,255,255);
+
+                    Scalar color;
+                    int colId = hierColor[i];
+                    cout<<colId<<endl;
+                    if(colId <0)
+                        color = Scalar(0,0,255);
+                    else
+                        color = Scalar(colors[colId].mean,255,255);
                     line(sortedPic, approx[i][0], approx[i][1], color, *(params[0].paramAddress));
                 }
                 int slidy = min(*(params[1].paramAddress),hPic.cols-1);

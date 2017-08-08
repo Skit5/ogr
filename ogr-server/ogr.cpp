@@ -93,7 +93,7 @@ namespace ogr{
 
         vector<vector<Point>> contColor = {};
         vector<int> hierColor = {};
-        sortCurvesByColor(hsvSplitted[0], graphArea, contCleaner, hierCleaner, approx, distribColors, contColor, hierColor);
+        sortCurvesByColor(hsvSplitted[0], graphArea, contClean, hierClean, approx, distribColors, contColor, hierColor);
         //// Classification des arêtes
         //sortEdges(edgesPicture,hsvPicture, graphArea, distribColors,
         //    edgeClusterIndices, {distribBg, distribLines});
@@ -101,7 +101,7 @@ namespace ogr{
         //// Extraction des traits
         //getStrokes(edgeClusterIndices, distribColors, strokes);
         /// Trier les arêtes par couleur
-        //sortEdgesByColor(hsvSplitted[0], noQuadEdges, distribColors, graphArea, colorMasks);
+        sortEdgesByColor(hsvSplitted[0], noQuadEdges, distribColors, graphArea, colorMasks);
         /// Détection des courbes
         //vector<vector<Point>> detectedCurves;
         //detectCurves(maskColor, distribColors, detectedCurves);
