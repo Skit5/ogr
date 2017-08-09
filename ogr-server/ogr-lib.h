@@ -279,14 +279,16 @@ namespace ogr{
     void filterZone(vector<vector<Point>> &cont, vector<Vec4i> &hier, Rect zone, int threshold);
     void filterLines(vector<vector<Point>> &cont, vector<Vec4i> &hier, vector<Rect>lines, int );
     void filterInterest(vector<vector<Point>> &cont, vector<Vec4i> &hier, vector<Rect>lines, int );
-
-    void sortCurvesByColor(Mat,Rect, vector<vector<Point>> cont, vector<Vec4i> hier, vector<vector<Point>>, vector<gaussianCurve> colors,
+    void sortCurvesByColor(Mat hPic, vector<vector<Point>> cont, vector<gaussianCurve> colors);
+    void filterCurvesByColor(Mat,Rect, vector<vector<Point>> cont, vector<Vec4i> hier, vector<vector<Point>>, vector<gaussianCurve> colors,
         vector<vector<Point>> &, vector<int> &hierColor);
 
 
     void detectCurves(vector<Mat> maskColors, vector<vector<Point>> &detectedCurves);
 
     bool cuts(Vec4i a, Vec4i b, int w);
+    void getContoursColors(vector<vector<Point>> cont, vector<vector<int>> &colored, vector<gaussianCurve> colors, Mat hPic);
+    void getDensityMat(Mat binPic, int kernel, Mat &densPic, double threshDens, int &maxDens);
 
 
     /****** VECTORISATION ******/

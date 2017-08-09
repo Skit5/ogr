@@ -42,7 +42,7 @@ namespace ogr{
         flattenPattern(bgrPicture, picFlat);
 
         /// Extraction des calques hsv
-        cvtColor(picFlat, hsvPicture, CV_BGR2HSV);
+        cvtColor(bgrPicture, hsvPicture, CV_BGR2HSV);
         split(hsvPicture,hsvSplitted);
 
         ///flattenColors(bgrPicture, picFlat);
@@ -91,9 +91,11 @@ namespace ogr{
         filterCurveBg(hsvSplitted,contours, hierarchy, contClean, hierClean, contCleaner, hierCleaner,
             approx, horizontales, verticales, graphArea);
 
-        vector<vector<Point>> contColor = {};
-        vector<int> hierColor = {};
-        sortCurvesByColor(hsvSplitted[0], graphArea, contClean, hierClean, approx, distribColors, contColor, hierColor);
+        sortCurvesByColor(hsvSplitted[0], contClean, distribColors);
+
+        //vector<vector<Point>> contColor = {};
+        //vector<int> hierColor = {};
+        //sortCurvesByColor(hsvSplitted[0], graphArea, contClean, hierClean, approx, distribColors, contColor, hierColor);
         //// Classification des arêtes
         //sortEdges(edgesPicture,hsvPicture, graphArea, distribColors,
         //    edgeClusterIndices, {distribBg, distribLines});

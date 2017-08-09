@@ -413,7 +413,7 @@ namespace ogr{
         if(DEBUG)
             cout<<"== Classification des aretes =="<<endl;
         vector<param2optimize> params{
-                {&errThresh,"neighbGap",100}
+                {&errThresh,"neighbGap",50}
         };
         optimizer(params, [=, /*&distribColors,*/ &colorMasks, &edgePic]()->Mat{
             Mat colors;
@@ -433,22 +433,13 @@ namespace ogr{
                         double _maxP = 0;
                         int _hue = huePic.at<uchar>(y,x);
                         for(int c=0; c<distribColors.size(); ++c){
-                            gaussianCurve _dist = distribColors[c];
-                            /// Fix pour le 180°
-                            if(_dist.mean+_dist.sigma>180 && _hue<(_dist.mean-_dist.sigma))
-                                _hue += 180;
-                            double _prob = _dist.probUnit(_hue);
-                            if(_prob > _maxP){
-                                _c = c;
-                                _maxP = _prob;
+                            if(abs(_hue+180-distribColors[c].mean)%180 <= (distribColors[c].sigma * *(params[0].paramAddress))){
+                                /// Filtrage sur un écart-type de confiance
+                                _colorMasks[c].at<uchar>(y,x) = 255;
+                                if(DEBUG)
+                                    colors.at<Vec3b>(y,x) = Vec3b((int)distribColors[c].mean, 255, 255);
                             }
                         }
-                        /// Filtrage sur un écart-type de confiance
-                        //if(abs(distribColors[_c].mean - _hue) <= 2*distribColors[_c].sigma){
-                            _colorMasks[_c].at<uchar>(y,x) = 255;
-                            if(DEBUG)
-                                colors.at<Vec3b>(y,x) = Vec3b((int)distribColors[_c].mean, 255, 255);
-                        //}
                     }
                 }
             }
@@ -764,7 +755,107 @@ namespace ogr{
     //  MERGE DES COURBES
     ****************************/
 
-    void sortCurvesByColor(Mat hPic, Rect zone, vector<vector<Point>> cont, vector<Vec4i> hier, vector<vector<Point>> approx,
+    void sortCurvesByColor(Mat hPic, vector<vector<Point>> cont, vector<gaussianCurve> colors){
+        int xPos = 200, kernel = 1, densThresh = 25;
+        vector<vector<int>> colored;
+        getContoursColors(cont, colored, colors, hPic);
+
+        vector<param2optimize> params{
+            {&kernel,"Kernel Size",30},
+            {&densThresh,"Density Threshold",100},
+            {&xPos,"",hPic.cols}
+        };
+
+        optimizer(params, [=]()->Mat{
+            Mat sortedPic = Mat::zeros(hPic.size(), CV_8UC3);
+            cout<<"0"<<endl;
+            for(int c=0; c<colors.size(); ++c){
+                Mat binPic = Mat::zeros(hPic.size(), CV_8UC1), densPic;
+                int maxDens;
+                for(int i=0; i<colored.size(); ++i){
+                    for(int j=0; j<colored[i].size(); ++j){
+                        if(colored[i][j] == c){
+                            Point _p = cont[i][j];
+                            binPic.at<uchar>(_p.y,_p.x) = 255;
+                        }
+
+                    }
+                }
+            cout<<"1"<<endl;
+                getDensityMat(binPic, *(params[0].paramAddress), densPic, *(params[1].paramAddress)/100, maxDens);
+            cout<<"2"<<endl;
+                for(int i=0; i<hPic.cols; ++i){
+                    for(int j=0; j<hPic.rows; ++j){
+                        int _val = round(densPic.at<int>(j,i)*255/maxDens);
+                        Vec3b _current = sortedPic.at<Vec3b>(j,i);
+                        if(_current[2] < _val)
+                            sortedPic.at<Vec3b>(j,i) = Vec3b(colors[c].mean, 255, _val);
+
+                    }
+                }
+            cout<<"3"<<endl;
+            }
+            cout<<"4"<<endl;
+
+            return sortedPic;
+        });
+
+
+        return;
+
+    }
+    void getContoursColors(vector<vector<Point>> cont, vector<vector<int>> &colored, vector<gaussianCurve> colors, Mat hPic){
+        colored = vector<vector<int>>();
+        for(int a=0; a<cont.size(); ++a){
+            vector<int> _cl;
+            for(int b=0; b<cont[a].size(); ++b){
+                Point _t = cont[a][b];
+                int _c = hPic.at<uchar>(_t.y,_t.x), _cll = -1;
+                for(int d=0; d<colors.size(); ++d){
+                    if(abs(_c+180-colors[d].mean)%180 <= colors[d].sigma)
+                        _cll = d;
+                }
+                _cl.push_back(_cll);
+            }
+            colored.push_back(_cl);
+        }
+    }
+    void getDensityMat(Mat binPic, int kernel, Mat &densPic, double threshDens, int &maxDens){
+        densPic = Mat::zeros(binPic.size(), CV_32SC1);
+        maxDens = 0;
+        for(int i=0; i<binPic.cols; ++i){
+            for(int j=0; j<binPic.rows; ++j){
+                cout<<"yo"<<endl;
+                double _density = 1.0;
+                int k = 0;
+                while(_density > threshDens){
+                    ++k;
+                    Vec4i _kern(
+                        max(0, i-(k*kernel)),
+                        min(binPic.cols-1, i+(k*kernel)),
+                        max(0, j-(k*kernel)),
+                        min(binPic.rows-1, j+(k*kernel))
+                    );
+                    double area = (_kern[1]+1-_kern[0]) * (_kern[3]+1-_kern[2]),
+                        sum = 0;
+                    for(int u=_kern[0]; u<=_kern[1]; ++u){
+                        for(int v=_kern[1]; v<=_kern[2]; ++v){
+                            if(binPic.at<uchar>(v,u) > 0)
+                                ++sum;
+                        }
+                    }
+                    _density = sum/area;
+                }
+                densPic.at<int>(j,i) = k-1;
+                if(k-1 > maxDens)
+                    maxDens = k-1;
+                cout<<"bye"<<endl;
+            }
+        }
+        cout<<"byebye"<<endl;
+        return;
+    }
+    void filterCurvesByColor(Mat hPic, Rect zone, vector<vector<Point>> cont, vector<Vec4i> hier, vector<vector<Point>> approx,
         vector<gaussianCurve> colors, vector<vector<Point>> &contColor, vector<int> &hierColor){
         int xPos = 200, errMargin = 4;
         hierColor = vector<int>(cont.size());
@@ -880,8 +971,8 @@ namespace ogr{
                     for(int j=0; j<cluster.size(); ++j){
                         Scalar color(colors[hierColor[cluster[j]]].mean,255,255);
                         int id = cluster[j];
-                        //line(filteredPic, approx[id][0], approx[id][1], color, *(params[0].paramAddress));
-                        //drawContours(filteredPic, cont, id, color, 1, 8, hier, 0, Point());
+                        line(filteredPic, approx[id][0], approx[id][1], color, *(params[0].paramAddress));
+                        drawContours(filteredPic, cont, id, color, 1, 8, hier, 0, Point());
                     }
                 }
                 for(int a=0; a<cont.size(); ++a){
@@ -889,8 +980,8 @@ namespace ogr{
                         Point _t = cont[a][b];
                         int _c = hPic.at<uchar>(_t.y,_t.x);
                         for(int d=0; d<colors.size(); ++d){
-                            if(abs(_c+180-colors[d].mean)%180 <= colors[d].sigma)
-                                filteredPic.at<Vec3b>(_t.y, _t.x) = Vec3b(colors[d].mean, 255, 255);
+                            //if(abs(_c+180-colors[d].mean)%180 <= colors[d].sigma)
+                                //filteredPic.at<Vec3b>(_t.y, _t.x) = Vec3b(colors[d].mean, 255, 255);
                         }
                     }
                 }
