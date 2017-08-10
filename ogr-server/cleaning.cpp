@@ -786,6 +786,8 @@ namespace ogr{
                 //vector<Vec4i> lines;
                 //getEdgeLines(binPic, lines);
                 getDensityMat(binPic, *(params[0].paramAddress), densPic);
+                Mat d2Pic = densPic.clone();
+                Sobel(d2Pic, d2Pic, -1, 2, 2);
                 for(int i=0; i<densPic.cols; ++i){
                     for(int j=0; j<densPic.rows; ++j){
                         int density = densPic.at<uchar>(j,i);
@@ -793,7 +795,7 @@ namespace ogr{
                             //int _val = round(density*255/maxDens);
                             Scalar _current = sortedPic.at<Scalar>(j,i);
                             if(0 < density)
-                                sortedPic.at<Vec3b>(j,i) = Vec3b(colors[c].mean, 255, density);
+                                sortedPic.at<Vec3b>(j,i) = Vec3b(colors[c].mean, 255, d2Pic.at<uchar>(j,i));
                         //}
 
                     }
@@ -828,36 +830,47 @@ namespace ogr{
 
 
     void getDensityMat(Mat binPic, int kernel, Mat &densPic){
-        Mat sumPic = Mat::zeros(binPic.size(), CV_32SC1);
-        densPic = Mat::zeros(binPic.size(), CV_8UC1);
-        int maxSum = 0;
-        for(int i=0; i<binPic.cols; ++i){
-            for(int j=0; j<binPic.rows; ++j){
-                Vec4i _kern(
-                    max(0, i-(kernel)),
-                    min(binPic.cols-1, i+(kernel)),
-                    max(0, j-(kernel)),
-                    min(binPic.rows-1, j+(kernel))
-                );
-                double /*area = (_kern[1]+1-_kern[0]) * (_kern[3]+1-_kern[2]),*/sum = 0;
-                for(int u=_kern[0]; u<=_kern[1]; ++u){
-                    for(int v=_kern[2]; v<=_kern[3]; ++v){
-                        if((int)binPic.at<uchar>(v,u) > 0)
-                            ++sum;
+            Mat sumPic = Mat::zeros(binPic.size(), CV_32SC1);
+            densPic = Mat::zeros(binPic.size(), CV_8UC1);
+            int maxSum = 0;
+            for(int i=0; i<binPic.cols; ++i){
+                for(int j=0; j<binPic.rows; ++j){
+                    Vec4i _kern(
+                        max(0, i-(kernel)),
+                        min(binPic.cols-1, i+(kernel)),
+                        max(0, j-(kernel)),
+                        min(binPic.rows-1, j+(kernel))
+                    );
+                    double /*area = (_kern[1]+1-_kern[0]) * (_kern[3]+1-_kern[2]),*/sum = 0;
+                    for(int u=_kern[0]; u<=_kern[1]; ++u){
+                        for(int v=_kern[2]; v<=_kern[3]; ++v){
+                            if((int)binPic.at<uchar>(v,u) > 0)
+                                ++sum;
+                        }
                     }
+                    sumPic.at<int>(j,i) = sum;
+                    if(sum > maxSum)
+                        maxSum = sum;
                 }
-                sumPic.at<int>(j,i) = sum;
-                if(sum > maxSum)
-                    maxSum = sum;
             }
-        }
 
-        for(int i=0; i<binPic.cols; ++i){
-            for(int j=0; j<binPic.rows; ++j){
-                double _density = log(sumPic.at<int>(j,i))/max(1.0,log(maxSum));
-                densPic.at<uchar>(j,i) = (int)round(_density*255);
+            for(int i=0; i<binPic.cols; ++i){
+                for(int j=0; j<binPic.rows; ++j){
+                    Vec4i _kern(
+                        max(0, i-(kernel)),
+                        min(binPic.cols-1, i+(kernel)),
+                        max(0, j-(kernel)),
+                        min(binPic.rows-1, j+(kernel))
+                    );
+                    double area = (_kern[1]+1-_kern[0]) * (_kern[3]+1-_kern[2]);
+                    //double _density = log(sumPic.at<int>(j,i))/max(1.0,log(maxSum));
+                    //double _density = 1/(1+exp(-(sumPic.at<int>(j,i)-(maxSum/2))));
+                    /// Fonction d'activation monotone, avec identité en 0 et étendue (0,1) normalisée
+                    /// voir page wiki sur fct d'acti
+                    double _density = atan(sumPic.at<int>(j,i))/atan(maxSum);
+                    densPic.at<uchar>(j,i) = (int)round(_density*255);
+                }
             }
-        }
 
         return;
     }

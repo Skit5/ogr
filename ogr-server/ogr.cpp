@@ -38,14 +38,14 @@ namespace ogr{
             imshow("Image initiale", bgrPicture);
         }
 
-        Mat picFlat;
-        flattenPattern(bgrPicture, picFlat);
+        //Mat picFlat;
+        //flattenPattern(bgrPicture, picFlat);
 
         /// Extraction des calques hsv
         cvtColor(bgrPicture, hsvPicture, CV_BGR2HSV);
         split(hsvPicture,hsvSplitted);
 
-        ///flattenColors(bgrPicture, picFlat);
+        //flattenColors(bgrPicture, picFlat);
 
         /// Détection des arêtes
         getEdges(hsvSplitted[2], edgesPicture);
