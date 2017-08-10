@@ -593,7 +593,7 @@ namespace ogr{
     //  DETECTION DE LA ZONE
     ****************************/
     void filterIntersect(Mat vPic, vector<vector<Point>> conts, vector<Vec4i> hiers, vector<Point> ints, vector<Point> &filteredInts, Rect &zone){
-        int eps = 3, err=4;
+        int eps = 3, err=2;
         RNG rng(12345);
         vector<param2optimize> params{
             {&eps,"Eps",100},

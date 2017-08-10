@@ -756,47 +756,50 @@ namespace ogr{
     ****************************/
 
     void sortCurvesByColor(Mat hPic, vector<vector<Point>> cont, vector<gaussianCurve> colors){
-        int xPos = 200, kernel = 1, densThresh = 25;
+        int xPos = 200, kernel = 7, densThresh = 85, kMax = 3;
         vector<vector<int>> colored;
         getContoursColors(cont, colored, colors, hPic);
 
         vector<param2optimize> params{
-            {&kernel,"Kernel Size",30},
-            {&densThresh,"Density Threshold",100},
+            {&kernel,"Kernel Size (2n+1)",10},
+            //{&densThresh,"Density Threshold",100},
+            //{&kMax,"Level Max",30},
             {&xPos,"",hPic.cols}
         };
 
         optimizer(params, [=]()->Mat{
-            Mat sortedPic = Mat::zeros(hPic.size(), CV_8UC3);
-            cout<<"0"<<endl;
+            Mat sortedPic = Mat::zeros(hPic.size(), CV_8UC3), binPic;
             for(int c=0; c<colors.size(); ++c){
-                Mat binPic = Mat::zeros(hPic.size(), CV_8UC1), densPic;
+                binPic = Mat::zeros(hPic.size(), CV_8UC1);
+                Mat densPic;
                 int maxDens;
-                for(int i=0; i<colored.size(); ++i){
-                    for(int j=0; j<colored[i].size(); ++j){
+                for(int i=0; i<cont.size(); ++i){
+                    for(int j=0; j<cont[i].size(); ++j){
                         if(colored[i][j] == c){
                             Point _p = cont[i][j];
-                            binPic.at<uchar>(_p.y,_p.x) = 255;
+                            binPic.at<uchar>(_p.y,_p.x) = 1;
+                            //sortedPic.at<Vec3b>(_p.y,_p.x) = Vec3b(colors[c].mean, 255, 255);
                         }
 
                     }
                 }
-            cout<<"1"<<endl;
-                getDensityMat(binPic, *(params[0].paramAddress), densPic, *(params[1].paramAddress)/100, maxDens);
-            cout<<"2"<<endl;
-                for(int i=0; i<hPic.cols; ++i){
-                    for(int j=0; j<hPic.rows; ++j){
-                        int _val = round(densPic.at<int>(j,i)*255/maxDens);
-                        Vec3b _current = sortedPic.at<Vec3b>(j,i);
-                        if(_current[2] < _val)
-                            sortedPic.at<Vec3b>(j,i) = Vec3b(colors[c].mean, 255, _val);
+                //vector<Vec4i> lines;
+                //getEdgeLines(binPic, lines);
+                getDensityMat(binPic, *(params[0].paramAddress), densPic);
+                for(int i=0; i<densPic.cols; ++i){
+                    for(int j=0; j<densPic.rows; ++j){
+                        int density = densPic.at<uchar>(j,i);
+                        //if(density > 0){
+                            //int _val = round(density*255/maxDens);
+                            Scalar _current = sortedPic.at<Scalar>(j,i);
+                            if(0 < density)
+                                sortedPic.at<Vec3b>(j,i) = Vec3b(colors[c].mean, 255, density);
+                        //}
 
                     }
                 }
-            cout<<"3"<<endl;
             }
-            cout<<"4"<<endl;
-
+            cvtColor(sortedPic, sortedPic, CV_HSV2BGR);
             return sortedPic;
         });
 
@@ -805,9 +808,9 @@ namespace ogr{
 
     }
     void getContoursColors(vector<vector<Point>> cont, vector<vector<int>> &colored, vector<gaussianCurve> colors, Mat hPic){
-        colored = vector<vector<int>>();
+        colored = vector<vector<int>>(cont.size());
         for(int a=0; a<cont.size(); ++a){
-            vector<int> _cl;
+            vector<int> _cl(cont[a].size());
             for(int b=0; b<cont[a].size(); ++b){
                 Point _t = cont[a][b];
                 int _c = hPic.at<uchar>(_t.y,_t.x), _cll = -1;
@@ -815,44 +818,108 @@ namespace ogr{
                     if(abs(_c+180-colors[d].mean)%180 <= colors[d].sigma)
                         _cll = d;
                 }
-                _cl.push_back(_cll);
+                _cl[b] =_cll;
             }
-            colored.push_back(_cl);
+            colored[a] = _cl;
         }
+        return;
     }
-    void getDensityMat(Mat binPic, int kernel, Mat &densPic, double threshDens, int &maxDens){
-        densPic = Mat::zeros(binPic.size(), CV_32SC1);
-        maxDens = 0;
+
+
+
+    void getDensityMat(Mat binPic, int kernel, Mat &densPic){
+        Mat sumPic = Mat::zeros(binPic.size(), CV_32SC1);
+        densPic = Mat::zeros(binPic.size(), CV_8UC1);
+        int maxSum = 0;
         for(int i=0; i<binPic.cols; ++i){
             for(int j=0; j<binPic.rows; ++j){
-                cout<<"yo"<<endl;
-                double _density = 1.0;
-                int k = 0;
-                while(_density > threshDens){
-                    ++k;
-                    Vec4i _kern(
-                        max(0, i-(k*kernel)),
-                        min(binPic.cols-1, i+(k*kernel)),
-                        max(0, j-(k*kernel)),
-                        min(binPic.rows-1, j+(k*kernel))
-                    );
-                    double area = (_kern[1]+1-_kern[0]) * (_kern[3]+1-_kern[2]),
-                        sum = 0;
-                    for(int u=_kern[0]; u<=_kern[1]; ++u){
-                        for(int v=_kern[1]; v<=_kern[2]; ++v){
-                            if(binPic.at<uchar>(v,u) > 0)
-                                ++sum;
-                        }
+                Vec4i _kern(
+                    max(0, i-(kernel)),
+                    min(binPic.cols-1, i+(kernel)),
+                    max(0, j-(kernel)),
+                    min(binPic.rows-1, j+(kernel))
+                );
+                double /*area = (_kern[1]+1-_kern[0]) * (_kern[3]+1-_kern[2]),*/sum = 0;
+                for(int u=_kern[0]; u<=_kern[1]; ++u){
+                    for(int v=_kern[2]; v<=_kern[3]; ++v){
+                        if((int)binPic.at<uchar>(v,u) > 0)
+                            ++sum;
                     }
-                    _density = sum/area;
                 }
-                densPic.at<int>(j,i) = k-1;
-                if(k-1 > maxDens)
-                    maxDens = k-1;
-                cout<<"bye"<<endl;
+                sumPic.at<int>(j,i) = sum;
+                if(sum > maxSum)
+                    maxSum = sum;
             }
         }
-        cout<<"byebye"<<endl;
+
+        for(int i=0; i<binPic.cols; ++i){
+            for(int j=0; j<binPic.rows; ++j){
+                double _density = log(sumPic.at<int>(j,i))/max(1.0,log(maxSum));
+                densPic.at<uchar>(j,i) = (int)round(_density*255);
+            }
+        }
+
+        return;
+    }
+
+
+    ///
+    /// while !exitFlag
+    ///     increment level
+    ///     set binary pic buffer as zeros of binary pic size
+    ///     set exitFlag as true
+    ///     for each point in binary pic
+    ///         set kernel distance around point
+    ///         sums every point in kernel
+    ///         get density as sum/kernel area
+    ///         if density > density threshold
+    ///             binary pic buffer = 1
+    ///             exitFlag is false
+    ///             if level-1 > density pic.level
+    ///             density pic.level = level-1
+    ///     binary pic is binary pic buffer
+    ///
+    void getDensityMat(Mat binPic, int kernel, Mat &densPic, double threshDens, int &maxDens, int maxK){
+        //Mat binPic = bin.clone();
+        densPic = Mat::zeros(binPic.size(), CV_32SC1);
+        maxDens = 0;
+        int k = 0;
+        bool exitFlag = false;
+        while(!exitFlag){
+            ++k;
+            exitFlag = true;
+            Mat _binPic = Mat::zeros(binPic.size(), CV_8UC1);
+            for(int i=0; i<binPic.cols; ++i){
+                for(int j=0; j<binPic.rows; ++j){
+                    if((int)binPic.at<uchar>(j,i) > 0){
+                        Vec4i _kern(
+                            max(0, i-(k*kernel)),
+                            min(binPic.cols-1, i+(k*kernel)),
+                            max(0, j-(k*kernel)),
+                            min(binPic.rows-1, j+(k*kernel))
+                        );
+                        double area = (_kern[1]+1-_kern[0]) * (_kern[3]+1-_kern[2]),
+                            sum = 0;
+                        for(int u=_kern[0]; u<=_kern[1]; ++u){
+                            for(int v=_kern[2]; v<=_kern[3]; ++v){
+                                if((int)binPic.at<uchar>(v,u) > 0)
+                                    ++sum;
+                            }
+                        }
+                        double _density = sum/area;
+                        if(_density >= threshDens){
+                            _binPic.at<uchar>(j,i) = 1;
+                            densPic.at<int>(j,i) = k;
+                            exitFlag = false;
+                        }
+                    }
+                }
+            }
+            binPic = _binPic.clone();
+            if(k+1 > maxK && maxK>0)
+                exitFlag = true;
+        };
+        maxDens = k;
         return;
     }
     void filterCurvesByColor(Mat hPic, Rect zone, vector<vector<Point>> cont, vector<Vec4i> hier, vector<vector<Point>> approx,

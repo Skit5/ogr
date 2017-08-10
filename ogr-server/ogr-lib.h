@@ -288,8 +288,8 @@ namespace ogr{
 
     bool cuts(Vec4i a, Vec4i b, int w);
     void getContoursColors(vector<vector<Point>> cont, vector<vector<int>> &colored, vector<gaussianCurve> colors, Mat hPic);
-    void getDensityMat(Mat binPic, int kernel, Mat &densPic, double threshDens, int &maxDens);
-
+    void getDensityMat(Mat binPic, int kernel, Mat &densPic, double threshDens, int &maxDens, int kMax=-1);
+    void getDensityMat(Mat binPic, int kernel, Mat &densPic);
 
     /****** VECTORISATION ******/
 }
