@@ -755,53 +755,70 @@ namespace ogr{
     //  MERGE DES COURBES
     ****************************/
 
-    void sortCurvesByColor(Mat hPic, vector<vector<Point>> cont, vector<gaussianCurve> colors){
-        int xPos = 200, kernel = 7, densThresh = 85, kMax = 3;
+    void sortCurvesByColor(Mat hPic, vector<vector<Point>> cont, vector<gaussianCurve> colors, Mat edgePic,
+        vector<vector<vector<int>>> &coloredPts, vector<Mat> &densities){
+        int xPos = 200, kernel = 7, w = 5;
+        coloredPts = vector<vector<vector<int>>>(colors.size());
         vector<vector<int>> colored;
+        densities = vector<Mat>(colors.size());
         getContoursColors(cont, colored, colors, hPic);
 
         vector<param2optimize> params{
             {&kernel,"Kernel Size (2n+1)",10},
+            {&w,"Stroke Width",20},
             //{&densThresh,"Density Threshold",100},
             //{&kMax,"Level Max",30},
             {&xPos,"",hPic.cols}
         };
 
-        optimizer(params, [=]()->Mat{
-            Mat sortedPic = Mat::zeros(hPic.size(), CV_8UC3), binPic;
+        optimizer(params, [=, &coloredPts, &densities]()->Mat{
+            Mat sortedPic = Mat::zeros(hPic.size(), CV_8UC3),
+                filteredPic = Mat::zeros(hPic.size(), CV_8UC3);
             for(int c=0; c<colors.size(); ++c){
-                binPic = Mat::zeros(hPic.size(), CV_8UC1);
-                Mat densPic;
+                Mat binPic = Mat::zeros(hPic.size(), CV_8UC1),
+                    densPic, edFiltPic;
                 int maxDens;
                 for(int i=0; i<cont.size(); ++i){
                     for(int j=0; j<cont[i].size(); ++j){
                         if(colored[i][j] == c){
                             Point _p = cont[i][j];
                             binPic.at<uchar>(_p.y,_p.x) = 1;
-                            //sortedPic.at<Vec3b>(_p.y,_p.x) = Vec3b(colors[c].mean, 255, 255);
                         }
 
                     }
                 }
-                //vector<Vec4i> lines;
-                //getEdgeLines(binPic, lines);
                 getDensityMat(binPic, *(params[0].paramAddress), densPic);
-                Mat d2Pic = densPic.clone();
-                Sobel(d2Pic, d2Pic, -1, 2, 2);
-                for(int i=0; i<densPic.cols; ++i){
-                    for(int j=0; j<densPic.rows; ++j){
-                        int density = densPic.at<uchar>(j,i);
-                        //if(density > 0){
-                            //int _val = round(density*255/maxDens);
-                            Scalar _current = sortedPic.at<Scalar>(j,i);
-                            if(0 < density)
-                                sortedPic.at<Vec3b>(j,i) = Vec3b(colors[c].mean, 255, d2Pic.at<uchar>(j,i));
-                        //}
+                vector<vector<int>> centers;
+                integrateYEdges(densPic, edgePic, edFiltPic, *(params[1].paramAddress), centers);
 
+                coloredPts[c] = centers;
+                densities[c] = densPic;
+                //vector<Mat> contLines;
+                //integrateXDensity(densPic, centers, *(params[0].paramAddress), *(params[1].paramAddress), contLines);
+                //Mat bigEdgePic;
+                //Sobel(densPic, bigEdgePic, -1, 2, 2);
+                //integrateYEdges(densPic, bigEdgePic, edFiltPic, 2* *(params[0].paramAddress) +1);
+                //vector<Vec4i> lines;
+                //fitLinesFromDensity(densPic, edgePic, *(params[0].paramAddress),  lines);
+                if(DEBUG){
+                    for(int i=0; i<hPic.cols; ++i){
+                        for(int j=0; j<hPic.rows; ++j){
+                            int density = densPic.at<uchar>(j,i);
+                            int intMask = edFiltPic.at<uchar>(j,i);
+                            Vec3b _current = sortedPic.at<Vec3b>(j,i);
+                            if(density > (int)_current[2]){
+                                sortedPic.at<Vec3b>(j,i) = Vec3b(colors[c].mean, 255, density);
+                                if(0 < intMask)
+                                    filteredPic.at<Vec3b>(j,i) = Vec3b(colors[c].mean, 255, density);
+                            }
+                        }
                     }
                 }
             }
+            int slidy = min(*(params[2].paramAddress),hPic.cols-1);
+            getSlidy(sortedPic, filteredPic, sortedPic, slidy);
             cvtColor(sortedPic, sortedPic, CV_HSV2BGR);
+            //cvtColor(filteredPic, filteredPic, CV_HSV2BGR);
             return sortedPic;
         });
 
@@ -809,6 +826,254 @@ namespace ogr{
         return;
 
     }
+    void getSlidy(Mat in1, Mat in2, Mat &out1, int slidy){
+        if(slidy > 0 && in1.size() == in2.size() && in1.depth() == in2.depth()){
+            Rect z1(0, 0, slidy, in1.rows),
+                z2(slidy, 0, in1.cols-slidy, in1.rows);
+            in2 = Mat(in2, z2);
+            in1 = Mat(in1, z1);
+            hconcat(in1, in2, out1);
+        }else{
+            out1 = in2;
+        }
+        return;
+    }
+    /*void applyMask(densPic, edgePic, edFiltPic){
+        edFiltPic = Mat::zeros(densPic.size(), densPic.depth());
+        for(int i=0; i<edgePic.rows; ++i){
+            for(int j=0; j<edgePic.cols; ++j){
+                if((int)edgePic.at<uchar>(i,j)>0)
+                    edFiltPic.at
+            }
+        }
+    }*/
+    void integrateYEdges(Mat pic, Mat mask, Mat &filteredPic, int errLength, vector<vector<int>> &centers){
+        centers = vector<vector<int>>(mask.cols);
+        filteredPic = Mat::zeros(pic.size(), CV_8UC1);
+        for(int i=0; i<mask.cols; ++i){
+            bool onStroke = false;
+            int _start = 0, _end = 0,
+                maxDens = 0, _mDens = -1;
+
+            for(int j=0; j<mask.rows; ++j){
+                bool mVal =  ((int)mask.at<uchar>(j,i) > 0);
+                int pVal =  (int)pic.at<uchar>(j,i);
+                if(pVal*mVal > 0){
+                    if(onStroke)
+                        _end = j;
+                    else{
+                        onStroke = true;
+                        _start = j;
+                        _end = j;
+                        maxDens = 0;
+                        _mDens  = -1;
+                    }
+                }
+                if(mVal>maxDens && onStroke){
+                    maxDens = mVal;
+                    _mDens = j;
+                }
+                if((j-_start >= errLength) || (j+1 == mask.rows)){
+                    for(int k = _start; k <= _end; ++k){
+                        filteredPic.at<uchar>(k,i) = 1;
+                    }
+                    centers[i].push_back(_mDens);
+                    onStroke = false;
+                }
+            }
+        }
+        return;
+    }
+
+
+    void extractStrokes(vector<Mat> densities, vector<vector<vector<int>>> colored,
+        Rect graphArea, vector<vector<vector<int>>> &curves){
+        int xPos = 200, kernel = 7, w = 5;
+
+        vector<param2optimize> params{
+            {&kernel,"Kernel Size (2n+1)",10},
+            {&w,"Stroke Width",20},
+            {&xPos,"",densities[0].cols}
+        };
+
+        optimizer(params, [=, &curves]()->Mat{
+            curves= vector<vector<vector<int>>>(densities.size());
+            Mat sortedPic = Mat::zeros(densities[0].size(), CV_8UC3),
+                filteredPic = Mat::zeros(densities[0].size(), CV_8UC3);
+            for(int c=0; c<densities.size(); ++c){
+                vector<Mat> intPic;
+                integrateXDensity(densities[c], colored[c], *(params[0].paramAddress), *(params[1].paramAddress), intPic);
+
+                /*if(DEBUG){
+                    for(int i=0; i<hPic.cols; ++i){
+                        for(int j=0; j<hPic.rows; ++j){
+                            int density = densPic.at<uchar>(j,i);
+                            int intMask = edFiltPic.at<uchar>(j,i);
+                            Vec3b _current = sortedPic.at<Vec3b>(j,i);
+                            if(density > (int)_current[2]){
+                                sortedPic.at<Vec3b>(j,i) = Vec3b(colors[c].mean, 255, density);
+                                if(0 < intMask)
+                                    filteredPic.at<Vec3b>(j,i) = Vec3b(colors[c].mean, 255, density);
+                            }
+                        }
+                    }
+                }*/
+            }
+            int slidy = min(*(params[2].paramAddress),densities[0].cols-1);
+            getSlidy(sortedPic, filteredPic, sortedPic, slidy);
+            cvtColor(sortedPic, sortedPic, CV_HSV2BGR);
+            return sortedPic;
+        });
+        return;
+    }
+
+
+    /// get batches of size 2*kernel+1 on X
+    /// get batches of size 2*kernel+1 translated of kernel on X'
+    /// for each batch x in X and X'
+    ///     merge Points as batch points
+    ///     sort batch points by y as sorted points
+    ///     for each y from sorted points[0] by max(width margin, next sorted point-y) jumps
+    ///         get sorted points between y and y+2*kernel+1 as filtered points
+    ///         get bounding box of filtered points
+    ///         if bouding box.width > width margin
+    ///             fit line to filtered points
+    ///             add sorted points to sorted points list
+    ///             add fit line to fit lines list
+    ///     for each fit line' in fit lines list of X'
+    ///         for each fit line in fit lines list of X
+    ///             if fit line cuts fit line'
+    ///                 sorted points' append to sorted points cluster
+    ///                 fit line' appends to fit line cluster
+    ///                 flagCut is true
+    ///         if flagCut is false
+    ///             add sorted points' to new cluster
+    ///             add fit line' to new cluster
+
+    void integrateXDensity(Mat densPic, vector<vector<int>> centers, int kernel, int widthMargin, vector<Mat> &intPic){
+        intPic = vector<Mat>();
+        int kSize = 2*kernel+1;
+        widthMargin = min(widthMargin, kSize);
+        int batchNbr = ceil(densPic.cols/kSize);
+        vector<vector<Point>> batches(batchNbr);
+        vector<vector<Point>> coBatches(batchNbr-1);
+
+        getBatches(centers, batchNbr, kSize, 0, batches);
+        getBatches(centers, batchNbr-1, kSize, kernel, coBatches);
+
+        /*
+
+        for(int b=0; b<batchNbr; ++b){
+            int _start = b*kSize,
+                _end = (b+1)*kSize-1;
+
+            vector<vector<int>> subCenters(centers.begin()+_start, centers.begin()+_end);
+            vector<Point> batchPts();
+            for(int u=0; u<subCenters.size(); ++u)
+                for(int v=0; v<subCenters[u].size(); ++v)
+                    batchPts.push_back(Point(_start+u, subCenters[u][v]));
+
+            sort(batchPts.begin(), batchPts.end(), [](Point a, Point b){
+                return (a.y<b.y);
+            });
+            batches[b] = batchPts;
+        }
+
+        vector<vector<int>> runningCurves();
+        vector<vector<Rect>> pendingCurves(densPic.cols);
+
+        for(int i=0; i< densPic.cols; ++i){
+            vector<int> points = centers[i];
+            vector<Rect> _pCurves();
+            /// Update pending curves
+            for(int p=0; p<points.size(); ++p){
+                bool hasOwner = false;
+
+                for(int pC=0; pC<pendingCurves.size(); ++pC){
+                    int _r = max(0, i-1),
+                        _l = max(0, i-(2*kernel+1)),
+                        _w = max(0,_r-_l),
+                        _b = max(0, i-kernel),
+                        _t = min(densPic.rows-1, i+kernel),
+                        _h = max(0, _t - _b);
+                    Rect kZone(_l,_b,_w,_h);
+                    if(pendingCurves[pC].contains(Point(i,points[p]))){
+
+                    }
+                }
+
+                if(!hasOwner){
+                    int _l = min(i, densPic.cols-1)
+                        _r = min(densPic.cols-1, i+(2*kernel+1)),
+                        _w = max(0,_r-_l),
+                        _b = max(0, i-kernel),
+                        _t = min(densPic.rows-1, i+kernel),
+                        _h = max(0, _t - _b);
+                    Rect kZone(_l,_b,_w,_h);
+                    _pCurves.push_back(kZone);
+                }
+            }
+            pendingCurves[i] = _pCurves;
+
+            /// Update curves
+            for(int c=0; c<curves.size(); ++c){
+                int _c = curves[c][curves[c].end()-1];
+
+            }
+            for(int p=0; p<points; ++p){
+                Vec
+            }
+
+            bool isUp = false;
+            int maxDens = 0, _mDens = -1;
+            for(int j=0; j< intMask.rows; ++j){
+                bool isOn = ((int)intMask.at<uchar>(j,i) > 0);
+                int dens = (int)densPic.at<uchar>(j,i);
+                if(isOn && !isUp){
+                    isUp = true;
+                    maxDens = dens;
+                    _mDens = j;
+                }
+                if((!isOn || j+1 == intMask.row) && isUp){
+                    isUp = false;
+                    maxDens = 0;
+                    points.push_back(_mDens);
+                    _mDens = -1;
+                }
+                if(isUp && dens > maxDens){
+                    maxDens = dens;
+                    _mDens = j;
+                }
+            }
+
+            for(int p=0; p<points.size(); ++p){
+
+            }
+        }*/
+        return;
+    }
+    void getBatches(vector<vector<int>> centers, int batchNbr, int kSize, int bias, vector<vector<Point>> &batches){
+        batches = vector<vector<Point>>(batchNbr);
+        for(int b=0; b<batchNbr; ++b){
+            int _start = b*kSize+bias,
+                _end = min((b+1)*kSize-1+bias, (int)centers.size()-1);
+
+            vector<vector<int>> subCenters(centers.begin()+_start, centers.begin()+_end);
+            vector<Point> batchPts;
+            for(int u=0; u<subCenters.size(); ++u)
+                for(int v=0; v<subCenters[u].size(); ++v){
+                    Point _a(_start+u, subCenters[u][v]);
+                    batchPts.push_back(_a);
+                }
+
+            sort(batchPts.begin(), batchPts.end(), [](Point a, Point b){
+                return (a.y<b.y);
+            });
+            batches[b] = batchPts;
+        }
+        return;
+    }
+
     void getContoursColors(vector<vector<Point>> cont, vector<vector<int>> &colored, vector<gaussianCurve> colors, Mat hPic){
         colored = vector<vector<int>>(cont.size());
         for(int a=0; a<cont.size(); ++a){

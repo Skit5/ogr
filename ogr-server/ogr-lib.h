@@ -232,7 +232,7 @@ namespace ogr{
     void getColors(Mat hsvPic[], Rect graphArea,
         vector<gaussianCurve> &distribColors, Mat &maskColor, Mat mask);
 
-    void sortEdgesByColor(Mat huePic, Mat edgePic, vector<gaussianCurve> distribColors, Rect, vector<Mat> colorMasks);
+    void sortEdgesByColor(Mat huePic, Mat edgePic, vector<gaussianCurve> distribColors, Rect zone, vector<Mat> colorMasks);
 
 
     //void detectCurves(Mat hsv[], Mat maskColor, vector<gaussianCurve> distribColors, vector<vector<Point>> &detectedCurves);
@@ -279,7 +279,8 @@ namespace ogr{
     void filterZone(vector<vector<Point>> &cont, vector<Vec4i> &hier, Rect zone, int threshold);
     void filterLines(vector<vector<Point>> &cont, vector<Vec4i> &hier, vector<Rect>lines, int );
     void filterInterest(vector<vector<Point>> &cont, vector<Vec4i> &hier, vector<Rect>lines, int );
-    void sortCurvesByColor(Mat hPic, vector<vector<Point>> cont, vector<gaussianCurve> colors);
+    void sortCurvesByColor(Mat hPic, vector<vector<Point>> cont, vector<gaussianCurve> colors, Mat edgePic,
+        vector<vector<vector<int>>> &colored, vector<Mat> &densities);
     void filterCurvesByColor(Mat,Rect, vector<vector<Point>> cont, vector<Vec4i> hier, vector<vector<Point>>, vector<gaussianCurve> colors,
         vector<vector<Point>> &, vector<int> &hierColor);
 
@@ -290,6 +291,12 @@ namespace ogr{
     void getContoursColors(vector<vector<Point>> cont, vector<vector<int>> &colored, vector<gaussianCurve> colors, Mat hPic);
     void getDensityMat(Mat binPic, int kernel, Mat &densPic, double threshDens, int &maxDens, int kMax=-1);
     void getDensityMat(Mat binPic, int kernel, Mat &densPic);
+    void getSlidy(Mat in1, Mat in2, Mat &out1, int slidy);
+    void integrateYEdges(Mat pic, Mat mask, Mat &filteredPic, int errLength, vector<vector<int>>&);
+    void integrateXDensity(Mat densPic, vector<vector<int>>, int kernel, int width, vector<Mat> &intPic);
+    void getBatches(vector<vector<int>> centers, int batchNbr, int kSize, int, vector<vector<Point>> &batches);
+    void extractStrokes(vector<Mat> densities, vector<vector<vector<int>>> colored,
+        Rect graphArea, vector<vector<vector<int>>> &curves);
 
     /****** VECTORISATION ******/
 }

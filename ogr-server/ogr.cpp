@@ -91,7 +91,11 @@ namespace ogr{
         filterCurveBg(hsvSplitted,contours, hierarchy, contClean, hierClean, contCleaner, hierCleaner,
             approx, horizontales, verticales, graphArea);
 
-        sortCurvesByColor(hsvSplitted[0], contClean, distribColors);
+        vector<vector<vector<int>>> colored;
+        vector<Mat> densities;
+        sortCurvesByColor(hsvSplitted[0], contClean, distribColors, noQuadEdges, colored, densities);
+        vector<vector<vector<int>>> curves;
+        extractStrokes(densities, colored, graphArea, curves);
 
         //vector<vector<Point>> contColor = {};
         //vector<int> hierColor = {};
