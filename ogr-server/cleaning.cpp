@@ -570,25 +570,9 @@ namespace ogr{
             approx = vector<vector<Point>>(_conts.size());
             if(_conts.size()>1){
                 for(int i = 0 ; i < _conts.size(); ++i){
-                    Vec4f _l;
-                    fitLine(_conts[i], _l, CV_DIST_L2, 0, *(params[2].paramAddress)/100,*(params[3].paramAddress)/100);
-                    Rect box = boundingRect(_conts[i]);
-                    Point a, b;
-                    float m = _l[1]/_l[0],
-                        p = _l[3] - m*_l[2];
-                    a = Point(box.x, m*box.x+p),
-                    b = Point(box.x+box.width-1, m*(box.x+box.width-1)+p);
-
-                    if(a.y < box.y)
-                        a = Point((box.y-p)/m, box.y);
-                    if(a.y >= box.y+box.height)
-                        a = Point((box.y+box.height-1-p)/m, box.y+box.height-1);
-                    if(b.y < box.y)
-                        b = Point((box.y-p)/m, box.y);
-                    if(b.y >= box.y+box.height)
-                        b = Point((box.y+box.height-1-p)/m, box.y+box.height-1);
-
-                    approx[i] ={a,b};
+                    Vec4i line;
+                    getFitLine(_conts[i], *(params[2].paramAddress)/100,*(params[3].paramAddress)/100, line);
+                    approx[i] ={Point(line[0],line[1]),Point(line[2],line[3])};
                     if(DEBUG)
                         line(detectedPic, a, b, colors[i], 2);
                 }
@@ -624,6 +608,30 @@ namespace ogr{
         });
 
 
+        return;
+    }
+
+
+    void getFitLine(vector<Point> conts, double reps, double aeps, Vec4i &line){
+        Vec4f _l;
+        fitLine(conts, _l, CV_DIST_L2, 0, reps, aeps);
+        Rect box = boundingRect(conts);
+        Point a, b;
+        float m = _l[1]/_l[0],
+            p = _l[3] - m*_l[2];
+        a = Point(box.x, m*box.x+p),
+        b = Point(box.x+box.width-1, m*(box.x+box.width-1)+p);
+
+        if(a.y < box.y)
+            a = Point((box.y-p)/m, box.y);
+        if(a.y >= box.y+box.height)
+            a = Point((box.y+box.height-1-p)/m, box.y+box.height-1);
+        if(b.y < box.y)
+            b = Point((box.y-p)/m, box.y);
+        if(b.y >= box.y+box.height)
+            b = Point((box.y+box.height-1-p)/m, box.y+box.height-1);
+
+        line = Vec4i(a.x,a.y,b.x,b.y);
         return;
     }
 
@@ -961,6 +969,34 @@ namespace ogr{
         getBatches(centers, batchNbr, kSize, 0, batches);
         getBatches(centers, batchNbr-1, kSize, kernel, coBatches);
 
+        vector<vector<vector<Point>>> miniBatches(batches.size());
+        vector<vector<vector<Point>>> miniCoBatches(coBatches.size());
+        vector<vector<Vec4i>> linesBatches(batches.size());
+        vector<vector<Vec4i>> linesCoBatches(coBatches.size());
+        vector<vector<vector<int>>> crosses(coBatches.size());
+        for(int b=0; b<batches.size(); ++b)
+            getFitLines(batches[b], miniBatches[b], linesBatches[b], kSize, widthMargin);
+        for(int b=0; b<coBatches.size(); ++b){
+            getFitLines(coBatches[b], miniCoBatches[b], linesCoBatches[b], kSize, widthMargin);
+            vector<vector<int>> cross(miniCoBatches.size());
+            for(int l=0; l<linesCoBatches[b].size(); ++l){
+                Vec4i _line = linesCoBatches[b][l];
+                vector<Vec4i> _prev = batches[l],
+                    _next = batches[l+1];
+                vector<int> _prevC(), _nextC();
+                for(int n=0; n<_next.size(); ++n)
+                    if(cuts(_line, _next[n], 2))
+                        _nextC.push_back(n);
+                for(int p=0; p<_prev.size(); ++p)
+                    if(cuts(_line, _prev[p], 2))
+                        _prevC.push_back(p);
+                cross[l] = {_prevC, _nextC};
+            }
+            crosses[b] = cross;
+        }
+
+
+
         /*
 
         for(int b=0; b<batchNbr; ++b){
@@ -1073,6 +1109,45 @@ namespace ogr{
         }
         return;
     }
+
+    void getFitLines(vector<Point> batches, vector<vector<Point>> &miniBatches,
+        vector<Vec4i> &linesBatches, int kSize, int margin){
+        miniBatches = vector<vector<Point>>();
+        linesBatches = vector<Vec4i>();
+        /// batch conditions:
+        ///     - point distance > margin
+        ///     - batch height > kSize
+        /// batch acceptance:
+        ///     - bounding box diag < margin
+        int y=0, _y=-1;
+        vector<Point> _buf();
+        bool isUp = false;
+        for(int b=0; b<batches.size(); ++b){
+            y = batches[b].y;
+            if(!isUp){  /// reset
+                isUp = true;
+                _y = y;
+                _buf = vector<Point>();
+            }
+            _buf.push_back(batches[b]);
+
+            /// tests
+            if(b+1 == batches.size()){
+                isUp = false;
+            }else if((abs(batches[b+1].y - y) > margin) || (abs(batches[b+1].y - _y) > kSize)){
+                isUp = false;
+            }
+            if(!isUp){  /// push
+                Vec4i l;
+                getFitLine(_buf, 1, 1, l);
+                miniBatches.push_back(_buf);
+                linesBatches.push_back(l);
+            }
+
+        }
+        return;
+    }
+
 
     void getContoursColors(vector<vector<Point>> cont, vector<vector<int>> &colored, vector<gaussianCurve> colors, Mat hPic){
         colored = vector<vector<int>>(cont.size());

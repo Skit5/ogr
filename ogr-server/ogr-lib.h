@@ -297,6 +297,7 @@ namespace ogr{
     void getBatches(vector<vector<int>> centers, int batchNbr, int kSize, int, vector<vector<Point>> &batches);
     void extractStrokes(vector<Mat> densities, vector<vector<vector<int>>> colored,
         Rect graphArea, vector<vector<vector<int>>> &curves);
+    void getFitLine(vector<Point> conts, double reps, double aeps, Vec4i &line);
 
     /****** VECTORISATION ******/
 }
