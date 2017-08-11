@@ -294,12 +294,14 @@ namespace ogr{
     void getSlidy(Mat in1, Mat in2, Mat &out1, int slidy);
     void integrateYEdges(Mat pic, Mat mask, Mat &filteredPic, int errLength, vector<vector<int>>&);
     void integrateXDensity(Mat densPic, vector<vector<int>>, int kernel, int width, vector<Mat> &intPic);
-    void getBatches(vector<vector<int>> centers, int batchNbr, int kSize, int, vector<vector<Point>> &batches);
-    void extractStrokes(vector<Mat> densities, vector<vector<vector<int>>> colored,
-        Rect graphArea, vector<vector<vector<int>>> &curves);
     void getFitLine(vector<Point> conts, double reps, double aeps, Vec4i &line);
 
     /****** VECTORISATION ******/
+    void extractStrokes(vector<Mat> densities, vector<vector<vector<int>>> colored,
+        Rect graphArea, vector<vector<vector<int>>> &curves);
+    void getBatches(vector<vector<int>> centers, int batchNbr, int kSize, int, vector<vector<Point>> &batches);
+    void getFitLines(vector<Point> batches, vector<vector<Point>> &miniBatches,
+        vector<Vec4i> &linesBatches, int kSize, int margin);
 }
 
 #endif // OGR_LIB_INCLUDED

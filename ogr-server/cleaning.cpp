@@ -493,7 +493,7 @@ namespace ogr{
             /// En mode debug,
             if(DEBUG){
                 for(int i=0; i<hierarch.size(); ++i){
-                    Scalar color = Scalar(rng.uniform(0,255), rng.uniform(0,255), rng.uniform(0,255));
+                    Scalar color = Scalar(rng.uniform(0,179), rng.uniform(0,255), rng.uniform(0,255));
                     int _lvl = *(params[0].paramAddress)-2;
                     if(hierarch[i][3] == _lvl || _lvl<=-2)
                         drawContours(strokedPic, conts, i, color, 2, 8, hierarch, 0, Point());
@@ -540,7 +540,7 @@ namespace ogr{
         }
         vector<Scalar> colors;
         for(int c = 0; c<contours.size(); ++c)
-            colors.push_back(Scalar(rng.uniform(0,255), rng.uniform(0,255), rng.uniform(0,255)));
+            colors.push_back(Scalar(rng.uniform(0,179), rng.uniform(0,255), rng.uniform(0,255)));
 
         vector<param2optimize> params{
             {&thresh,"SeuilZone",100},
@@ -549,7 +549,7 @@ namespace ogr{
             {&reps,"REps",100},
             {&slider,"",hsv[0].cols}
         };
-        optimizer(params, [=, &hierClean, &contClean, &hierCleaner, &contCleaner, &approx]()->Mat{
+        optimizer(params, [=, &hierClean, &contClean, &hierCleaner, &contCleaner, &approx, &colors]()->Mat{
             Mat filteredPic, detectedPic;
             contClean = contours;
             hierClean = hierarchy;
@@ -570,9 +570,10 @@ namespace ogr{
             approx = vector<vector<Point>>(_conts.size());
             if(_conts.size()>1){
                 for(int i = 0 ; i < _conts.size(); ++i){
-                    Vec4i line;
-                    getFitLine(_conts[i], *(params[2].paramAddress)/100,*(params[3].paramAddress)/100, line);
-                    approx[i] ={Point(line[0],line[1]),Point(line[2],line[3])};
+                    Vec4i _line;
+                    getFitLine(_conts[i], *(params[2].paramAddress)/100,*(params[3].paramAddress)/100, _line);
+                    Point a(_line[0], _line[1]), b(_line[2], _line[3]);
+                    approx[i] ={a,b};
                     if(DEBUG)
                         line(detectedPic, a, b, colors[i], 2);
                 }
@@ -894,48 +895,6 @@ namespace ogr{
     }
 
 
-    void extractStrokes(vector<Mat> densities, vector<vector<vector<int>>> colored,
-        Rect graphArea, vector<vector<vector<int>>> &curves){
-        int xPos = 200, kernel = 7, w = 5;
-
-        vector<param2optimize> params{
-            {&kernel,"Kernel Size (2n+1)",10},
-            {&w,"Stroke Width",20},
-            {&xPos,"",densities[0].cols}
-        };
-
-        optimizer(params, [=, &curves]()->Mat{
-            curves= vector<vector<vector<int>>>(densities.size());
-            Mat sortedPic = Mat::zeros(densities[0].size(), CV_8UC3),
-                filteredPic = Mat::zeros(densities[0].size(), CV_8UC3);
-            for(int c=0; c<densities.size(); ++c){
-                vector<Mat> intPic;
-                integrateXDensity(densities[c], colored[c], *(params[0].paramAddress), *(params[1].paramAddress), intPic);
-
-                /*if(DEBUG){
-                    for(int i=0; i<hPic.cols; ++i){
-                        for(int j=0; j<hPic.rows; ++j){
-                            int density = densPic.at<uchar>(j,i);
-                            int intMask = edFiltPic.at<uchar>(j,i);
-                            Vec3b _current = sortedPic.at<Vec3b>(j,i);
-                            if(density > (int)_current[2]){
-                                sortedPic.at<Vec3b>(j,i) = Vec3b(colors[c].mean, 255, density);
-                                if(0 < intMask)
-                                    filteredPic.at<Vec3b>(j,i) = Vec3b(colors[c].mean, 255, density);
-                            }
-                        }
-                    }
-                }*/
-            }
-            int slidy = min(*(params[2].paramAddress),densities[0].cols-1);
-            getSlidy(sortedPic, filteredPic, sortedPic, slidy);
-            cvtColor(sortedPic, sortedPic, CV_HSV2BGR);
-            return sortedPic;
-        });
-        return;
-    }
-
-
     /// get batches of size 2*kernel+1 on X
     /// get batches of size 2*kernel+1 translated of kernel on X'
     /// for each batch x in X and X'
@@ -981,7 +940,7 @@ namespace ogr{
             vector<vector<int>> cross(miniCoBatches.size());
             for(int l=0; l<linesCoBatches[b].size(); ++l){
                 Vec4i _line = linesCoBatches[b][l];
-                vector<Vec4i> _prev = batches[l],
+                /*vector<Vec4i> _prev = batches[l],
                     _next = batches[l+1];
                 vector<int> _prevC(), _nextC();
                 for(int n=0; n<_next.size(); ++n)
@@ -990,10 +949,11 @@ namespace ogr{
                 for(int p=0; p<_prev.size(); ++p)
                     if(cuts(_line, _prev[p], 2))
                         _prevC.push_back(p);
-                cross[l] = {_prevC, _nextC};
+                cross[l] = {_prevC, _nextC};*/
             }
             crosses[b] = cross;
         }
+
 
 
 
@@ -1086,65 +1046,6 @@ namespace ogr{
 
             }
         }*/
-        return;
-    }
-    void getBatches(vector<vector<int>> centers, int batchNbr, int kSize, int bias, vector<vector<Point>> &batches){
-        batches = vector<vector<Point>>(batchNbr);
-        for(int b=0; b<batchNbr; ++b){
-            int _start = b*kSize+bias,
-                _end = min((b+1)*kSize-1+bias, (int)centers.size()-1);
-
-            vector<vector<int>> subCenters(centers.begin()+_start, centers.begin()+_end);
-            vector<Point> batchPts;
-            for(int u=0; u<subCenters.size(); ++u)
-                for(int v=0; v<subCenters[u].size(); ++v){
-                    Point _a(_start+u, subCenters[u][v]);
-                    batchPts.push_back(_a);
-                }
-
-            sort(batchPts.begin(), batchPts.end(), [](Point a, Point b){
-                return (a.y<b.y);
-            });
-            batches[b] = batchPts;
-        }
-        return;
-    }
-
-    void getFitLines(vector<Point> batches, vector<vector<Point>> &miniBatches,
-        vector<Vec4i> &linesBatches, int kSize, int margin){
-        miniBatches = vector<vector<Point>>();
-        linesBatches = vector<Vec4i>();
-        /// batch conditions:
-        ///     - point distance > margin
-        ///     - batch height > kSize
-        /// batch acceptance:
-        ///     - bounding box diag < margin
-        int y=0, _y=-1;
-        vector<Point> _buf();
-        bool isUp = false;
-        for(int b=0; b<batches.size(); ++b){
-            y = batches[b].y;
-            if(!isUp){  /// reset
-                isUp = true;
-                _y = y;
-                _buf = vector<Point>();
-            }
-            _buf.push_back(batches[b]);
-
-            /// tests
-            if(b+1 == batches.size()){
-                isUp = false;
-            }else if((abs(batches[b+1].y - y) > margin) || (abs(batches[b+1].y - _y) > kSize)){
-                isUp = false;
-            }
-            if(!isUp){  /// push
-                Vec4i l;
-                getFitLine(_buf, 1, 1, l);
-                miniBatches.push_back(_buf);
-                linesBatches.push_back(l);
-            }
-
-        }
         return;
     }
 
