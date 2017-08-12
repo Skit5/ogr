@@ -302,6 +302,8 @@ namespace ogr{
     void getBatches(vector<vector<int>> centers, int batchNbr, int kSize, int, vector<vector<Point>> &batches);
     void getFitLines(vector<Point> batches, vector<vector<Point>> &miniBatches,
         vector<Vec4i> &linesBatches, int kSize, int margin);
+    void getFitRects(vector<Point> batches, vector<vector<Point>> &miniBatches,
+        vector<Rect> &rectsBatches, int kSize, int margin);
 }
 
 #endif // OGR_LIB_INCLUDED

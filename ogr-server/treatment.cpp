@@ -26,56 +26,101 @@ namespace ogr{
             int kernel = *(params[0].paramAddress), kSize = 2*kernel+1,
                 widthMargin = max(min(*(params[1].paramAddress), kSize),1); /// Si 0, trop de calculs
             int batchNbr = ceil(densities[0].cols/kSize);
-            vector<vector<vector<Vec4i>>> _lines(densities.size());
-            vector<vector<vector<vector<Point>>>> miniBatchess(densities.size());
+           // vector<vector<vector<Rect>>> _rects(densities.size());
+            //vector<vector<vector<vector<Point>>>> miniBatchess(densities.size());
+            /// Pour chaque couleur
             for(int c=0; c<densities.size(); ++c){
-                //vector<Mat> intPic;
-                //integrateXDensity(densities[c], colored[c], *(params[0].paramAddress), *(params[1].paramAddress), intPic);
-                //(Mat densPic, vector<vector<int>> centers, int kernel, int widthMargin, vector<Mat> &intPic){
-                //intPic = vector<Mat>();
                 vector<vector<int>> centers = colored[c];
                 vector<vector<Point>> batches(batchNbr);
                 vector<vector<Point>> coBatches(batchNbr-1);
                 getBatches(centers, batchNbr, kSize, 0, batches);
                 getBatches(centers, batchNbr-1, kSize, kernel, coBatches);
-
+                /// On découpe en batchs de largeur constante
+                ///     on échantillonne aussi avec un décalage de moitié de la période
+                ///     d'échantillonnage => principe de Nyquist pour permettre de recomposer
+                ///     nos batchs grâce à des interbatchs, ou cobatchs
+                /// puis en minibatchs de hauteur variable selon les données
+                /// et enfin on détermine la bounding box et on teste les intersections
                 vector<vector<vector<Point>>> miniBatches(batches.size());
                 vector<vector<vector<Point>>> miniCoBatches(coBatches.size());
-                vector<vector<Vec4i>> linesBatches(batches.size());
-                vector<vector<Vec4i>> linesCoBatches(coBatches.size());
-                vector<vector<vector<int>>> crosses(coBatches.size());
-                for(int b=0; b<batches.size(); ++b)
-                    getFitLines(batches[b], miniBatches[b], linesBatches[b], kSize, widthMargin);
-
-                for(int b=0; b<coBatches.size(); ++b){
-                    getFitLines(coBatches[b], miniCoBatches[b], linesCoBatches[b], kSize, widthMargin);
-                    vector<vector<vector<int>>> cross(linesCoBatches[b].size());
-                    vector<Vec4i> _prevL = linesBatches[b],
-                        _nextL = linesBatches[b+1];
-                    for(int l=0; l<linesCoBatches[b].size(); ++l){
-                        Vec4i _line = linesCoBatches[b][l];
-                        vector<int> _prevC, _nextC;
-                        for(int n=0; n<_nextL.size(); ++n)
-                            if(cuts(_line, _nextL[n], 2))
-                                _nextC.push_back(n);
-                        for(int p=0; p<_prevL.size(); ++p)
-                            if(cuts(_line, _prevL[p], 2))
-                                _prevC.push_back(p);
-                        cross[l].push_back(_prevC);
-                        cross[l].push_back(_nextC);
-                    }
-                    //crosses[b] = cross;
-                    miniBatchess[c] = miniBatches;
+                vector<vector<Rect>> rectsBatches(batches.size());
+                vector<vector<Rect>> rectsCoBatches(coBatches.size());
+                vector<vector<vector<vector<int>>>> crosses(coBatches.size());
+                vector<vector<Vec2i>> _curves;
+                for(int b=0; b<batches.size(); ++b){
+                    getFitRects(batches[b], miniBatches[b], rectsBatches[b], kSize, widthMargin);
                     if(DEBUG){
-                        linesBatches.insert(linesBatches.end(), linesCoBatches.begin(), linesCoBatches.end());
-                        _lines[c] = linesBatches;
+                        for(int k=0; k<rectsBatches[b].size(); ++k){
+                            rectangle(sortedPic, rectsBatches[b][k], clrs[c]);
+                        }
                     }
                 }
+
+                for(int b=0; b<coBatches.size(); ++b){
+                    getFitRects(coBatches[b], miniCoBatches[b], rectsCoBatches[b], kSize, widthMargin);
+                    vector<vector<vector<int>>> cross(rectsCoBatches[b].size());
+                    vector<Rect> _prevL = rectsBatches[b],
+                        _nextL = rectsBatches[b+1];
+                    for(int l=0; l<rectsCoBatches[b].size(); ++l){
+                        Rect _r = rectsCoBatches[b][l];
+                        vector<int> _prevC, _nextC;
+                        for(int n=0; n<_nextL.size(); ++n){
+                            if((_r&_nextL[n]).area() > 0)
+                                _nextC.push_back(n);
+                        }
+                        for(int p=0; p<_prevL.size(); ++p){
+                            if((_r&_prevL[p]).area() > 0)
+                                _prevC.push_back(p);
+                        }
+                        cross[l].push_back(_prevC);
+                        cross[l].push_back(_nextC);
+                        if(DEBUG){
+                            rectangle(sortedPic, rectsCoBatches[b][l], clrs[c]);
+                        }
+                        /// La recomposition commence par isoler les connexions 1-to-1
+                        if(_prevC.size()*_nextC.size() == 1){
+                            /// On ajoute la connexion a une courbe 1-to-1 si possible
+                            int u = -1;
+                            for(int o=0; o<_curves.size(); ++o){
+                                Vec2i _lastC = _curves[o].back();
+                                if( _lastC[1] == _prevC[0] && _lastC[0] == b-1){
+                                    u = o;
+                                    _curves[o].push_back(Vec2i(b,l));
+                                    _curves[o].push_back(Vec2i(b+1,_nextC[0]));
+                                }
+                            }
+                            /// On ajoute une nouvelle courbe sinon
+                            if(u<0){
+                                _curves.push_back({Vec2i(b,_prevC[0]), Vec2i(b,l), Vec2i(b+1,_nextC[0])});
+                            }
+                        }
+
+                    }
+                    crosses[b] = cross;
+                }
+                /// Chaque courbe 1-to-1 est ordonnée selon sa taille
+                sort(_curves.begin(), _curves.end(), [](vector<Vec2i> a, vector<Vec2i> b){
+                    return (a.size()<b.size());
+                });
+
+                for(int u=0; u<_curves.size(); ++u){
+                    for(int v=0; v<_curves[u].size(); ++v){
+                        Vec2i _c = _curves[u][v];
+                        Rect z;
+                        if(v%2 == 0)
+                            z = rectsBatches[_c[0]][_c[1]];
+                        else
+                            z = rectsCoBatches[_c[0]][_c[1]];
+                        if(DEBUG)
+                            rectangle(filteredPic, z, clrs[c]);
+                    }
+                }
+
             }
 
 
             if(DEBUG){
-                for(int c=0; c<densities.size(); ++c){
+                /*for(int c=0; c<densities.size(); ++c){
                     Scalar clr = clrs[c];
                     for(int a=0; a<_lines[c].size(); ++a){
                         for(int b=0; b<_lines[c][a].size(); ++b){
@@ -85,7 +130,7 @@ namespace ogr{
                             rectangle(sortedPic, boundingRect(vector<Point>({g,h})), clr);
                         }
                     }
-                }
+                }*/
             }
 
             int slidy = min(*(params[2].paramAddress),densities[0].cols-1);
@@ -95,6 +140,7 @@ namespace ogr{
         });
         return;
     }
+
     void getBatches(vector<vector<int>> centers, int batchNbr, int kSize, int bias, vector<vector<Point>> &batches){
         batches = vector<vector<Point>>(batchNbr);
         for(int b=0; b<batchNbr; ++b){
@@ -149,6 +195,41 @@ namespace ogr{
                 getFitLine(_buf, 1, 1, l);
                 miniBatches.push_back(_buf);
                 linesBatches.push_back(l);
+            }
+
+        }
+        return;
+    }
+
+    void getFitRects(vector<Point> batches, vector<vector<Point>> &miniBatches,
+        vector<Rect> &rectsBatches, int kSize, int margin){
+        miniBatches = vector<vector<Point>>();
+        rectsBatches = vector<Rect>();
+        /// batch conditions:
+        ///     - point distance > margin
+        ///     - batch height > kSize
+        int y=0, _y=-1;
+        vector<Point> _buf;
+        bool isUp = false;
+        for(int b=0; b<batches.size(); ++b){
+            y = batches[b].y;
+            if(!isUp){  /// reset
+                isUp = true;
+                _y = y;
+                _buf = vector<Point>();
+            }
+            _buf.push_back(batches[b]);
+
+            /// tests
+            if(b+1 == batches.size()){
+                isUp = false;
+            }else if((abs(batches[b+1].y - y) >= margin) || (abs(batches[b+1].y - _y) >= kSize)){
+                isUp = false;
+            }
+            if(!isUp){  /// push
+                Rect _r = boundingRect(_buf);
+                rectsBatches.push_back(_r);
+                miniBatches.push_back(_buf);
             }
 
         }
