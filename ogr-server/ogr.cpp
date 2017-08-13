@@ -94,8 +94,6 @@ namespace ogr{
         vector<vector<vector<int>>> colored;
         vector<Mat> densities;
         sortCurvesByColor(hsvSplitted[0], contClean, distribColors, noQuadEdges, colored, densities);
-        vector<vector<vector<int>>> curves;
-        extractStrokes(densities, colored, graphArea, curves);
 
         //vector<vector<Point>> contColor = {};
         //vector<int> hierColor = {};
@@ -107,7 +105,7 @@ namespace ogr{
         //// Extraction des traits
         //getStrokes(edgeClusterIndices, distribColors, strokes);
         /// Trier les arêtes par couleur
-        sortEdgesByColor(hsvSplitted[0], noQuadEdges, distribColors, graphArea, colorMasks);
+        //sortEdgesByColor(hsvSplitted[0], noQuadEdges, distribColors, graphArea, colorMasks);
         /// Détection des courbes
         //vector<vector<Point>> detectedCurves;
         //detectCurves(maskColor, distribColors, detectedCurves);
@@ -117,6 +115,8 @@ namespace ogr{
         /****************************
         //  VECTORISATION
         ****************************/
+        vector<vector<vector<int>>> curves;
+        extractStrokes(densities, colored, graphArea, curves);
 
         /// Détection des courbes
         detectCurves(colorMasks, detectedCurves);

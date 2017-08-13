@@ -8,7 +8,7 @@ namespace ogr{
 
     void extractStrokes(vector<Mat> densities, vector<vector<vector<int>>> colored,
         Rect graphArea, vector<vector<vector<int>>> &curves){
-        int xPos = densities[0].cols-1, kernel = 7, w = 5;
+        int xPos = densities[0].cols-1, kernel = 7, w = 5, bT = 3, mem = 3;
         RNG rng(12345);
         vector<Scalar> clrs;
         for(int d=0; d<densities.size(); ++d)
@@ -16,6 +16,8 @@ namespace ogr{
         vector<param2optimize> params{
             {&kernel,"Kernel Size (2n+1)",15},
             {&w,"Height Err",30},
+            {&mem,"Mem", 20},
+            {&bT,"Curve Thresh",50},
             {&xPos,"",densities[0].cols}
         };
 
@@ -102,7 +104,7 @@ namespace ogr{
                 sort(_curves.begin(), _curves.end(), [](vector<Vec2i> a, vector<Vec2i> b){
                     return (a.size()<b.size());
                 });
-
+                /// On merge ensuite progressivement les courbes
                 for(int u=0; u<_curves.size(); ++u){
                     for(int v=0; v<_curves[u].size(); ++v){
                         Vec2i _c = _curves[u][v];
@@ -133,7 +135,7 @@ namespace ogr{
                 }*/
             }
 
-            int slidy = min(*(params[2].paramAddress),densities[0].cols-1);
+            int slidy = min(*(params[4].paramAddress),densities[0].cols-1);
             getSlidy(sortedPic, filteredPic, sortedPic, slidy);
             cvtColor(sortedPic, sortedPic, CV_HSV2BGR);
             return sortedPic;
