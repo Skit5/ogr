@@ -8,7 +8,7 @@ namespace ogr{
 
     void extractStrokes(vector<Mat> densities, vector<vector<vector<int>>> colored,
         Rect graphArea, vector<vector<vector<int>>> &curves){
-        int xPos = densities[0].cols-1, kernel = 7, w = 5, bT = 3, mem = 3;
+        int xPos = 0, kernel = 7, w = 5, bT = 6, mem = 3;
         RNG rng(12345);
         vector<Scalar> clrs;
         for(int d=0; d<densities.size(); ++d)
@@ -17,7 +17,7 @@ namespace ogr{
             {&kernel,"Kernel Size (2n+1)",15},
             {&w,"Height Err",30},
             {&mem,"Mem", 20},
-            {&bT,"Curve Thresh",50},
+            {&bT,"Curve Thresh",30},
             {&xPos,"",densities[0].cols}
         };
 
@@ -67,11 +67,13 @@ namespace ogr{
                         Rect _r = rectsCoBatches[b][l];
                         vector<int> _prevC, _nextC;
                         for(int n=0; n<_nextL.size(); ++n){
-                            if((_r&_nextL[n]).area() > 0)
+                            Rect h = (_r&_nextL[n]);
+                            if(h.area() > 0)
                                 _nextC.push_back(n);
                         }
                         for(int p=0; p<_prevL.size(); ++p){
-                            if((_r&_prevL[p]).area() > 0)
+                            Rect h = (_r&_prevL[p]);
+                            if(h.area() > 0)
                                 _prevC.push_back(p);
                         }
                         cross[l].push_back(_prevC);
@@ -81,11 +83,12 @@ namespace ogr{
                         }
                         /// La recomposition commence par isoler les connexions 1-to-1
                         if(_prevC.size()*_nextC.size() == 1){
+                            //rectangle(filteredPic, (_prevL[0]|_nextL[0]), clrs[c], 2);
                             /// On ajoute la connexion a une courbe 1-to-1 si possible
                             int u = -1;
                             for(int o=0; o<_curves.size(); ++o){
                                 Vec2i _lastC = _curves[o].back();
-                                if( _lastC[1] == _prevC[0] && _lastC[0] == b-1){
+                                if( _lastC == Vec2i(b, _prevC[0])){
                                     u = o;
                                     _curves[o].push_back(Vec2i(b,l));
                                     _curves[o].push_back(Vec2i(b+1,_nextC[0]));
@@ -105,39 +108,54 @@ namespace ogr{
                     return (a.size()<b.size());
                 });
                 /// On merge ensuite progressivement les courbes
+                vector<vector<Point>> mergedBatches(_curves.size());
                 for(int u=0; u<_curves.size(); ++u){
+                    //vector<Point> cluster;
                     for(int v=0; v<_curves[u].size(); ++v){
                         Vec2i _c = _curves[u][v];
                         Rect z;
-                        if(v%2 == 0)
+                        vector<Point> _b;
+                        if(v%2 == 0){
                             z = rectsBatches[_c[0]][_c[1]];
-                        else
+                            _b = miniBatches[_c[0]][_c[1]];
+                        }else{
                             z = rectsCoBatches[_c[0]][_c[1]];
-                        if(DEBUG)
+                            _b = miniCoBatches[_c[0]][_c[1]];
+                        }
+                        mergedBatches[u].insert(mergedBatches[u].end(), _b.begin(), _b.end());
+                        if(DEBUG){
                             rectangle(filteredPic, z, clrs[c]);
-                    }
-                }
-
-            }
-
-
-            if(DEBUG){
-                /*for(int c=0; c<densities.size(); ++c){
-                    Scalar clr = clrs[c];
-                    for(int a=0; a<_lines[c].size(); ++a){
-                        for(int b=0; b<_lines[c][a].size(); ++b){
-                            Vec4i _l = _lines[c][a][b];
-                            Point g(_l[0],_l[1]), h(_l[2],_l[3]);
-                            line(sortedPic, g, h, clr, 1);
-                            rectangle(sortedPic, boundingRect(vector<Point>({g,h})), clr);
+                            //rectangle(filteredPic, boundingRect(_b), clrs[c]);
                         }
                     }
-                }*/
+                    Vec4d polynom;
+                    int height = densities[c].rows-1;
+                    fitCustomPoly(mergedBatches[u], polynom, height);
+                    //fitCubicPoly(mergedBatches[u], polynom, height);
+                    if(DEBUG && (_curves[u].size() > *(params[3].paramAddress))){
+                        Rect zone = boundingRect(mergedBatches[u]);
+                        rectangle(filteredPic, zone, clrs[c],2);
+                        bool isContained = true;
+                        for(int x=graphArea.x; x<graphArea.x+graphArea.width; ++x){
+                        //for(int x=zone.x; x<zone.x+zone.width; ++x){
+                            int y = round(polynom[0]*x*x
+                                +polynom[1]*x
+                                +polynom[2]
+                                +polynom[3]/x);
+                            y = height-y;
+                            isContained = graphArea.contains(Point(x,y));
+                            if(isContained){
+                                filteredPic.at<Vec3b>(y,x) = Vec3b(clrs[c][0],clrs[c][1],clrs[c][2]);
+                            }
+                        }
+                    }
+                }
             }
-
-            int slidy = min(*(params[4].paramAddress),densities[0].cols-1);
-            getSlidy(sortedPic, filteredPic, sortedPic, slidy);
-            cvtColor(sortedPic, sortedPic, CV_HSV2BGR);
+            if(DEBUG){
+                int slidy = min(*(params[4].paramAddress),densities[0].cols-1);
+                getSlidy(sortedPic, filteredPic, sortedPic, slidy);
+                cvtColor(sortedPic, sortedPic, CV_HSV2BGR);
+            }
             return sortedPic;
         });
         return;
@@ -162,6 +180,56 @@ namespace ogr{
             });
             batches[b] = batchPts;
         }
+        return;
+    }
+
+    /// Fit un polynome ax^2+bx+c+dx^-1 = y
+    void fitCustomPoly(vector<Point> pts, Vec4d &poly, int height){
+        /// Définition des paramètres S et T
+        vector<double> S(6), _S(6);
+        Vec4d T;
+        for(auto &pt: pts){
+            for(int s=0; s<S.size(); ++s){
+                _S[s] = pow(pt.x, s-2);
+                S[s] += _S[s];
+            }
+            for(int t=0; t<4; ++t){
+                T[t] += _S[S.size()-t-2]*(height-pt.y);
+            }
+            _S = vector<double>(6);
+        }
+        Mat A(Size(4,4), CV_64FC1);
+        for(int u=0; u<A.rows; ++u){
+            for(int v=0; v<A.cols; ++v){
+                A.at<double>(u,v) = S[S.size()-u-v];
+            }
+        }
+        solve(A, T, poly);
+        return;
+    }
+
+    /// Fit un polynome ax^3+bx^2+cx+d = y
+    void fitCubicPoly(vector<Point> pts, Vec4d &poly, int height){
+        /// Définition des paramètres S et T
+        vector<double> S(6), _S(6);
+        Vec4d T;
+        for(auto &pt: pts){
+            for(int s=0; s<S.size(); ++s){
+                _S[s] = pow(pt.x, s);
+                S[s] += _S[s];
+            }
+            for(int t=0; t<4; ++t){
+                T[t] += _S[S.size()-t-2]*(height-pt.y);
+            }
+            _S = vector<double>(6);
+        }
+        Mat A(Size(4,4), CV_64FC1);
+        for(int u=0; u<A.rows; ++u){
+            for(int v=0; v<A.cols; ++v){
+                A.at<double>(u,v) = S[S.size()-u-v];
+            }
+        }
+        solve(A, T, poly);
         return;
     }
 
@@ -293,6 +361,9 @@ namespace ogr{
 
         return;
     }
+
+
+
     /*void detectCurves(Mat hsv[], Mat maskColor, vector<gaussianCurve> distribColors, vector<vector<Point>> &detectedCurves){
         int errThresh = 10;
         vector<param2optimize> params{

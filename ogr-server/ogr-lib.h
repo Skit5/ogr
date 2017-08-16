@@ -304,6 +304,8 @@ namespace ogr{
         vector<Vec4i> &linesBatches, int kSize, int margin);
     void getFitRects(vector<Point> batches, vector<vector<Point>> &miniBatches,
         vector<Rect> &rectsBatches, int kSize, int margin);
+    void fitCustomPoly(vector<Point> pts, Vec4d &poly, int);
+    void fitCubicPoly(vector<Point> pts, Vec4d &poly, int);
 }
 
 #endif // OGR_LIB_INCLUDED

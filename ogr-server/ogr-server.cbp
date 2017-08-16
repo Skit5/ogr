@@ -47,12 +47,12 @@
 		<Unit filename="dataset/graph4.jpg" />
 		<Unit filename="dataset/graph5.jpg" />
 		<Unit filename="dataset/graph6.png" />
+		<Unit filename="detection.cpp" />
 		<Unit filename="main.cpp" />
+		<Unit filename="numerisation.cpp" />
 		<Unit filename="ogr-lib.h" />
 		<Unit filename="ogr.cpp" />
 		<Unit filename="optimizer.cpp" />
-		<Unit filename="pretreatment.cpp" />
-		<Unit filename="treatment.cpp" />
 		<Extensions>
 			<code_completion />
 			<debugger />

@@ -18,8 +18,8 @@ namespace ogr{
             int maxId = -1;
             int k = (*(params[2].paramAddress)<1)? 1: *(params[2].paramAddress);
             Mat picZone(hsvSplitted[2], zone), shrinkedPicZone;
-            edgeCleanMask = Mat(edgeMask.clone());
-            mask = Mat::zeros(hsvSplitted[2].size(),hsvSplitted[2].type());
+                edgeCleanMask = Mat::zeros(hsvSplitted[2].size(),hsvSplitted[2].type());
+                mask = Mat::zeros(hsvSplitted[2].size(),hsvSplitted[2].type());
 
             if(DEBUG){
                 cout<<"== Extraction du masque de fond =="<<endl
@@ -131,6 +131,7 @@ namespace ogr{
                 for(int j=zone.y; j<zone.y+zone.height; ++j){
                     int gVal = hsvSplitted[2].at<uchar>(j,i);
                     int gSat = hsvSplitted[1].at<uchar>(j,i);
+                    int gMask = edgeMask.at<uchar>(j,i);
                     double ratSV = sqrt(gVal*gSat)/255;
                     bool disp = true;
                     if(gVal<=_maxSup && gVal>=_maxInf) /// Filtrage du fond
@@ -141,6 +142,8 @@ namespace ogr{
                     /// On réalise l'affichage
                     if(disp)
                         mask.at<uchar>(j,i) = 0xFF;
+                    if(gMask > 0)
+                        edgeCleanMask.at<uchar>(j,i) = 0xFF;
                 }
             }
             for(int i=0; i<hors.size(); ++i){   /// Pour chaque horizontale
@@ -400,10 +403,6 @@ namespace ogr{
             sig = round(mad/b);
         return {sig, median};
     }
-
-
-
-
 
     /****************************
     //  CLASSIFICATION DES ARÊTES
@@ -1296,7 +1295,7 @@ namespace ogr{
                         drawContours(filteredPic, cont, id, color, 1, 8, hier, 0, Point());
                     }
                 }
-                for(int a=0; a<cont.size(); ++a){
+                /*for(int a=0; a<cont.size(); ++a){
                     for(int b=0; b<cont[a].size(); ++b){
                         Point _t = cont[a][b];
                         int _c = hPic.at<uchar>(_t.y,_t.x);
@@ -1305,7 +1304,7 @@ namespace ogr{
                                 //filteredPic.at<Vec3b>(_t.y, _t.x) = Vec3b(colors[d].mean, 255, 255);
                         }
                     }
-                }
+                }*/
                 for(int i=0; i<approx.size(); ++i){
 
                     Scalar color;
