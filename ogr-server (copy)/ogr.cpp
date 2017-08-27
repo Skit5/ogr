@@ -119,7 +119,7 @@ namespace ogr{
         extractStrokes(densities, colored, graphArea, curves);
 
         /// Détection des courbes
-        //detectCurves(colorMasks, detectedCurves);
+        detectCurves(colorMasks, detectedCurves);
         /// Interpolation linéaire des traits
 
         /// Test de présence d'un ratio sur les courbes

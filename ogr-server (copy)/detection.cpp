@@ -317,7 +317,7 @@ namespace ogr{
     //  DETECTION DES LIGNES
     ****************************/
     void getEdgeLines(Mat edgedPicture, vector<Vec4i> &lines){
-        int thresh=55, minLineLength=60, maxLineGap=8, maxLine=max(edgedPicture.cols,edgedPicture.rows);
+        int thresh=55, minLineLength=60, maxLineGap=7, maxLine=max(edgedPicture.cols,edgedPicture.rows);
         vector<param2optimize> params{
             {&thresh,"Threshold",maxLine},
             {&minLineLength,"MinLineLength",maxLine},

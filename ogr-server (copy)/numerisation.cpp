@@ -130,29 +130,9 @@ namespace ogr{
                     }
                     Vec4d polynom;
                     int height = densities[c].rows-1;
-
-                    //getFitLine(mergedBatches[u], 0.01, 0.01, _line);
-                    //line(filteredPic, Point(_line[0],_line[1]), Point(_line[2],_line[3]),clrs[c],2);
-                    //fitCustomPoly(mergedBatches[u], polynom, height);
+                    fitCustomPoly(mergedBatches[u], polynom, height);
                     //fitCubicPoly(mergedBatches[u], polynom, height);
                     if(DEBUG && (_curves[u].size() > *(params[3].paramAddress))){
-                        Vec4i _lL, _lR;
-                        int limit = max(1, *(params[2].paramAddress));
-                        vector<Point> _bL, _bR;
-                        for(int k=0; k <= limit; ++k){
-                            int _k = mergedBatches[u].size()-1-k;
-                            if(k<mergedBatches[u].size())
-                                _bL.push_back(mergedBatches[u][k]);
-                            if(_k>=0)
-                                _bR.push_back(mergedBatches[u][_k]);
-                        }
-                        extendLine(_bL, _lL, graphArea.x);
-                        extendLine(_bR, _lR, graphArea.x + graphArea.width);
-                        //getFitLine(_bL, 0.01, 0.01, _lL);
-                        //getFitLine(_bR, 0.01, 0.01, _lR);
-                        line(filteredPic, Point(_lL[0],_lL[1]), Point(_lL[2],_lL[3]),clrs[c]);
-                        line(filteredPic, Point(_lR[0],_lR[1]), Point(_lR[2],_lR[3]),clrs[c]);
-
                         Rect zone = boundingRect(mergedBatches[u]);
                         rectangle(filteredPic, zone, clrs[c],2);
                         bool isContained = true;
@@ -164,7 +144,7 @@ namespace ogr{
                                 +polynom[3]/x);
                             y = height-y;
                             isContained = graphArea.contains(Point(x,y));
-                            if(isContained & false){
+                            if(isContained){
                                 filteredPic.at<Vec3b>(y,x) = Vec3b(clrs[c][0],clrs[c][1],clrs[c][2]);
                             }
                         }
@@ -200,28 +180,6 @@ namespace ogr{
             });
             batches[b] = batchPts;
         }
-        return;
-    }
-
-    void extendLine(vector<Point> pts, Vec4i &line, int limit){
-        Vec4i _line;
-        Vec4f _l;
-        fitLine(pts, _l, CV_DIST_L2, 0, 0.01, 0.01);
-        Rect bound = boundingRect(pts);
-        if((_l[0] != 0) && (limit > 0)){
-            double m = _l[1] / _l[0],
-                p = _l[3] - m*_l[2];
-            if(bound.x > limit){
-                _line[0] = limit;
-                _line[2] = bound.x;
-            }else{
-                _line[0] = bound.x+bound.width;
-                _line[2] = limit;
-            }
-            _line[1] = round(m*_line[0]+p);
-            _line[3] = round(m*_line[2]+p);
-        }
-        line = _line;
         return;
     }
 
@@ -304,7 +262,7 @@ namespace ogr{
             }
             if(!isUp){  /// push
                 Vec4i l;
-                getFitLine(_buf, 0.01, 0.01, l);
+                getFitLine(_buf, 1, 1, l);
                 miniBatches.push_back(_buf);
                 linesBatches.push_back(l);
             }
