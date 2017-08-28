@@ -47,10 +47,13 @@ namespace ogr{
                 vector<vector<vector<Point>>> miniCoBatches(coBatches.size());
                 vector<vector<Rect>> rectsBatches(batches.size());
                 vector<vector<Rect>> rectsCoBatches(coBatches.size());
+                vector<vector<bool>> seenBatches(batches.size());
+                vector<vector<bool>> seenCoBatches(coBatches.size());
                 vector<vector<vector<vector<int>>>> crosses(coBatches.size());
                 vector<vector<Vec2i>> _curves;
                 for(int b=0; b<batches.size(); ++b){
                     getFitRects(batches[b], miniBatches[b], rectsBatches[b], kSize, widthMargin);
+                    seenBatches[b] = vector<bool>(rectsBatches[b].size());
                     if(DEBUG){
                         for(int k=0; k<rectsBatches[b].size(); ++k){
                             rectangle(sortedPic, rectsBatches[b][k], clrs[c]);
@@ -60,6 +63,7 @@ namespace ogr{
 
                 for(int b=0; b<coBatches.size(); ++b){
                     getFitRects(coBatches[b], miniCoBatches[b], rectsCoBatches[b], kSize, widthMargin);
+                    seenCoBatches[b] = vector<bool>(rectsCoBatches[b].size());
                     vector<vector<vector<int>>> cross(rectsCoBatches[b].size());
                     vector<Rect> _prevL = rectsBatches[b],
                         _nextL = rectsBatches[b+1];
@@ -108,9 +112,68 @@ namespace ogr{
                     return (a.size()<b.size());
                 });
                 /// On merge ensuite progressivement les courbes
+                ///
+                /// Pour chaque segment identifié
+                ///     Pour chaque minicobatch du segment
+                ///         On prélève les extrémités dans des buffers de taille M
+                ///         On le supprime du buffer des minicobatchs
+                ///         On supprime ses voisins du buffer des batchs
+                ///     Pour chacune de ses extrémités
+                ///         On définit leur tendance
+                ///         Tant qu'il reste des cobatchs à explorer et que notre tendance est comprise dans la zone
+                ///             On initialise le minicobatch buffer et tendance buffer
+                ///             On étend la tendance d'une longueur de batch dans le sens de l'extrémité
+                ///             Si le minibatch d'extrémité provient du batch
+                ///                 Pour chaque minicobatch dans le cobatch
+                ///                     S'il intersecte le minibatch étudié
+                ///                         Pour chaque minibatch suivant
+                ///                             Si la tendance de ce chemin est meilleure que la tendance du buffer
+                ///                                 On met à jour les buffers
+                ///             Si le minicobatch buffer est toujours initialisé
+                ///                 Pour chaque minicobatch dans le cobatch
+                ///                     Si le minicobatch intersecte la tendance
+                ///                         Pour chaque élément à gauche du minicobatch
+                ///                             Pour chaque élément à droite du minicobatch
+                ///                                 On détermine l'erreur d'orientation des tendances
+                ///                                 Si l'erreur est inférieure au seuil
+                ///                                     Si l'erreur est inférieure à l'erreur entre le tendance buffer et la tendance du segment
+                ///                                         On met à jour les buffers
+                ///             Si le minicobatch buffer n'est plus initialisé
+                ///                 On ajoute le buffer au segment
+                ///                 On met à jour les buffers du segment sur les M derniers batchs et cobatchs, partant de la nouvelle extrémité
+                ///                 Si le minicobatch buffer a 1 voisin à droite ou 1 à gauche
+                ///                     On le supprime du buffer des minicobatchs
+                ///                     On supprime les minibatchs ajoutés du buffer des minibatchs
+                ///             On itère l'index de cobatch dans le sens de l'extrémité
+                ///
+
+                /*for(int u=0; u<_curves.size(); ++u){
+                    for(int v=0; v<_curves[u].size(); ++v){
+                        Vec2i _c = _curves[u][v];
+                        Rect z;
+                        vector<Point> _b;
+                        if(v%2 == 0){
+                            seenBatches[_c[0]][_c[1]] = true;
+                            z = rectsBatches[_c[0]][_c[1]];
+                            _b = miniBatches[_c[0]][_c[1]];
+                        }else{
+                            seenCoBatches[_c[0]][_c[1]] = true;
+                            z = rectsCoBatches[_c[0]][_c[1]];
+                            _b = miniCoBatches[_c[0]][_c[1]];
+                        }
+                        mergedBatches[u].insert(mergedBatches[u].end(), _b.begin(), _b.end());
+                        if(DEBUG){
+                            rectangle(filteredPic, z, clrs[c]);
+                        }
+                    }
+                }*/
+
                 vector<vector<Point>> mergedBatches(_curves.size());
+                vector<vector<Rect>> mergedRects(_curves.size());
+                int mem = *(params[2].paramAddress)+1;
                 for(int u=0; u<_curves.size(); ++u){
-                    //vector<Point> cluster;
+                    vector<Point> _lPts, _rPts;
+                    Vec2i _bStart, _bEnd;
                     for(int v=0; v<_curves[u].size(); ++v){
                         Vec2i _c = _curves[u][v];
                         Rect z;
@@ -123,19 +186,67 @@ namespace ogr{
                             _b = miniCoBatches[_c[0]][_c[1]];
                         }
                         mergedBatches[u].insert(mergedBatches[u].end(), _b.begin(), _b.end());
+                        mergedRects[u].push_back(z);
+
+                        /*vector<Point> _y;
+                        _y.push_back(Point(z.x,z.y));
+                        _y.push_back(Point(z.x,z.y+z.height));
+                        _y.push_back(Point(z.x+z.width,z.y));
+                        _y.push_back(Point(z.x+z.width,z.y+z.height));*/
+
+                        if(v < mem)
+                            _lPts.insert(_lPts.end(), _b.begin(), _b.end());
+                        if(_curves[u].size()-v-1 < mem)
+                            _rPts.insert(_rPts.end(), _b.begin(), _b.end());
+
+                        if(v==0)
+                            _bStart = _c;
+                        if(v==_curves[u].size()-1)
+                            _bEnd = _c;
+
                         if(DEBUG){
                             rectangle(filteredPic, z, clrs[c]);
                             //rectangle(filteredPic, boundingRect(_b), clrs[c]);
                         }
                     }
+                    Vec4i _lTend, _rTend;
+                    //getFitLine(_lPts, 0.01, 0.01, _lTend);
+                    //getFitLine(_rPts, 0.01, 0.01, _rTend);
+                    extendLine(_lPts, _lTend, graphArea.x);
+                    extendLine(_rPts, _rTend, graphArea.x + graphArea.width);
+
+                    /// Résolution à gauche
+                    for(int l=_bStart[0]; l >= 0; --l){
+                        for(int g=0; g<crosses[l].size(); ++g){
+                            vector<int> nexts = crosses[l][g][1];
+                            if(_bStar)
+                        }
+                        _mCoBatch = _bStart;
+
+                    }
+                    /// Résolution à droite
+                    for(int r=_bEnd[0]; r < batchNbr-1; ++r){
+
+                    }
+
+
+                    /*for(int j=0; j<mem; ++j)
+                    for(int e=0; e<2; ++e){
+
+                    }*/
+
+
                     Vec4d polynom;
                     int height = densities[c].rows-1;
 
-                    //getFitLine(mergedBatches[u], 0.01, 0.01, _line);
-                    //line(filteredPic, Point(_line[0],_line[1]), Point(_line[2],_line[3]),clrs[c],2);
                     //fitCustomPoly(mergedBatches[u], polynom, height);
                     //fitCubicPoly(mergedBatches[u], polynom, height);
+
+                    //getFitLine(mergedBatches[u], 0.01, 0.01, _line);
+                    //line(filteredPic, Point(_line[0],_line[1]), Point(_line[2],_line[3]),clrs[c],2);
                     if(DEBUG && (_curves[u].size() > *(params[3].paramAddress))){
+                    line(filteredPic, Point(_lTend[0],_lTend[1]), Point(_lTend[2],_lTend[3]),clrs[c],2);
+                    line(filteredPic, Point(_rTend[0],_rTend[1]), Point(_rTend[2],_rTend[3]),clrs[c],2);
                         Vec4i _lL, _lR;
                         int limit = max(1, *(params[2].paramAddress));
                         vector<Point> _bL, _bR;
@@ -148,10 +259,11 @@ namespace ogr{
                         }
                         extendLine(_bL, _lL, graphArea.x);
                         extendLine(_bR, _lR, graphArea.x + graphArea.width);
+                        //Vec4i _line;
                         //getFitLine(_bL, 0.01, 0.01, _lL);
                         //getFitLine(_bR, 0.01, 0.01, _lR);
-                        line(filteredPic, Point(_lL[0],_lL[1]), Point(_lL[2],_lL[3]),clrs[c]);
-                        line(filteredPic, Point(_lR[0],_lR[1]), Point(_lR[2],_lR[3]),clrs[c]);
+                        //line(filteredPic, Point(_lL[0],_lL[1]), Point(_lL[2],_lL[3]),clrs[c]);
+                        //line(filteredPic, Point(_lR[0],_lR[1]), Point(_lR[2],_lR[3]),clrs[c]);
 
                         Rect zone = boundingRect(mergedBatches[u]);
                         rectangle(filteredPic, zone, clrs[c],2);
