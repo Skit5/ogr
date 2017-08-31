@@ -317,7 +317,8 @@ namespace ogr{
     //  DETECTION DES LIGNES
     ****************************/
     void getEdgeLines(Mat edgedPicture, vector<Vec4i> &lines){
-        int thresh=55, minLineLength=60, maxLineGap=8, maxLine=max(edgedPicture.cols,edgedPicture.rows);
+        //int thresh=55, minLineLength=60, maxLineGap=8, maxLine=max(edgedPicture.cols,edgedPicture.rows);
+        int thresh=0, minLineLength=50, maxLineGap=8, maxLine=max(edgedPicture.cols,edgedPicture.rows);
         vector<param2optimize> params{
             {&thresh,"Threshold",maxLine},
             {&minLineLength,"MinLineLength",maxLine},
@@ -593,6 +594,7 @@ namespace ogr{
     //  DETECTION DE LA ZONE
     ****************************/
     void filterIntersect(Mat vPic, vector<vector<Point>> conts, vector<Vec4i> hiers, vector<Point> ints, vector<Point> &filteredInts, Rect &zone){
+        //int eps = 1, err=2;
         int eps = 3, err=2;
         RNG rng(12345);
         vector<param2optimize> params{
@@ -625,6 +627,11 @@ namespace ogr{
             if(maxCurve >= 0){
                 Mat _maskInts = Mat::zeros(vPic.size(),CV_8UC1);
                 drawContours(_maskInts, conts, maxCurve, Scalar(255), *(params[1].paramAddress), 1, hiers, 0, Point());
+
+                if(*(params[0].paramAddress) > 0){
+                    Mat element = getStructuringElement(MORPH_CROSS,Size(*(params[0].paramAddress),*(params[0].paramAddress)));
+                    morphologyEx(_maskInts, _maskInts, MORPH_ERODE, element, Point());
+                }
                 for(int i=0; i<ints.size(); ++i){
                     Point _p = ints[i];
                     if(_maskInts.at<uchar>(_p.y,_p.x)>0)

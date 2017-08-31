@@ -77,12 +77,14 @@ namespace ogr{
             /// On définit la distribution pour le quadrillage
             /// pour éviter que le spectre des courbes et du quadrillage
             /// se recoupe en niveaux de gris, on utilise s*v pour filtrer
+            vector<int> epaisseurs;
             double histoLines[256] = {};
             for(int i=0; i<vers.size(); ++i){   /// Pour chaque verticale
                 if(vers[i][0]<=zone.x+zone.width && vers[i][0]>=zone.x){
                     for(int j=vers[i][1]; j<vers[i][2]; ++j){   /// Pour chaque longueur
                         int _startP = max(round(vers[i][0]-vers[i][3]/2), round(zone.x)),
                             _endP = min(round(_startP+vers[i][3]), round(zone.x+zone.width));
+                        epaisseurs.push_back(vers[i][3]);
                         for(int w=_startP; w<_endP; ++w){
                             /// Pour chaque point dans l'épaisseur
                             int locVal = hsvSplitted[2].at<uchar>(j,w);
@@ -99,6 +101,7 @@ namespace ogr{
                     for(int j=hors[i][1]; j<hors[i][2]; ++j){   /// Pour chaque longueur
                         int _startP = max(round(hors[i][0]-hors[i][3]/2), round(zone.y)),
                             _endP = min(round(_startP+hors[i][3]), round(zone.y+zone.height));
+                        epaisseurs.push_back(hors[i][3]);
                         for(int w=_startP; w<_endP; ++w){
                             /// Pour chaque point dans l'épaisseur
                             int locVal = hsvSplitted[2].at<uchar>(w,j);
@@ -116,10 +119,16 @@ namespace ogr{
             //imshow("echo v",hsvSplitted[2]);
 
             gaussianCurve lineDistrib = histo2gaussian(histoLines);
-            int _lineSup = lineDistrib.mean + lineDistrib.sigma;
-            int _lineInf = lineDistrib.mean - lineDistrib.sigma;
+            int _lineSup = lineDistrib.mean + 2*lineDistrib.sigma;
+            int _lineInf = lineDistrib.mean - 2*lineDistrib.sigma;
+
+            sort(epaisseurs.begin(), epaisseurs.end());
+            int epaissMed = epaisseurs[round(epaisseurs.size()/2)];
+
             if(DEBUG)
-                cout<<"Lines range(grey) :["<<_lineInf<<" : "<<lineDistrib.mean<<" : "<<_lineSup<<" ]"<<endl;
+                cout<<"Lines range(grey) :["<<_lineInf<<" : "<<lineDistrib.mean<<" : "<<_lineSup<<" ]"<<endl
+                    <<"Avg Median Thickness : "<<epaissMed<<endl;
+
 
 
 
@@ -149,19 +158,19 @@ namespace ogr{
             for(int i=0; i<hors.size(); ++i){   /// Pour chaque horizontale
                 if(hors[i][0]>=zone.y && hors[i][0]<zone.y+zone.height){
                     for(int j=zone.x; j<zone.x+zone.width; ++j){   /// Pour chaque largeur
-                        int _startP = max(round(hors[i][0]-hors[i][3]/2), round(zone.y)),
-                            _endP = min(round(_startP+hors[i][3]), round(zone.y+zone.height));
+                        int _startP = max(round(hors[i][0]-(epaissMed/2)-1), round(zone.y)),
+                            _endP = min(round(_startP+epaissMed)+1, round(zone.y+zone.height));
                         for(int w=_startP; w<_endP; ++w){
                             /// Pour chaque point dans l'épaisseur
                             int locVal = hsvSplitted[2].at<uchar>(w,j);
                                 //edgeCleanMask.at<uchar>(w,j) = 0x5F;
                                 edgeCleanMask.at<uchar>(w,j) = 0x0;
-                            if((locVal>=_lineInf) && (locVal<=_lineSup)){   /// Filtre de couleur de ligne
+                            //if((locVal>=_lineInf) && (locVal<=_lineSup)){   /// Filtre de couleur de ligne
                                 //cout<<_lineInf<<" "<<locVal<<" "<<_lineSup<<endl;
                                 //cout<<locVal<<endl;
-                                mask.at<uchar>(w,j) = 0x0;
+                                mask.at<uchar>(w,j) = 0x00;
                                 //cout<<w<<","<<j<<endl;
-                            }
+                            //}
                         }
                     }
                 }
@@ -169,15 +178,15 @@ namespace ogr{
             for(int i=0; i<vers.size(); ++i){   /// Pour chaque verticale
                 if(vers[i][0]>=zone.x && vers[i][0]<zone.x+zone.width){
                     for(int j=zone.y; j<zone.y+zone.height; ++j){   /// Pour chaque largeur
-                        int _startP = max(round(vers[i][0]-vers[i][3]/2), round(zone.x)),
-                            _endP = min(round(_startP+vers[i][3]), round(zone.x+zone.width));
+                        int _startP = max(round(vers[i][0]-(epaissMed/2)-1), round(zone.x)),
+                            _endP = min(round(_startP+epaissMed)+1, round(zone.x+zone.width));
                         for(int w=_startP; w<_endP; ++w){
                             /// Pour chaque point dans l'épaisseur
                             int locVal = hsvSplitted[2].at<uchar>(j,w);
                             edgeCleanMask.at<uchar>(j,w) = 0x0;
-                            if((locVal>=_lineInf) && (locVal<=_lineSup)){   /// Filtre de couleur de ligne
-                                mask.at<uchar>(j,w) = 0x0;
-                            }
+                            //if((locVal>=_lineInf) && (locVal<=_lineSup)){   /// Filtre de couleur de ligne
+                                mask.at<uchar>(j,w) = 0x00;
+                            //}
                         }
                     }
                 }
@@ -196,11 +205,12 @@ namespace ogr{
 
     void getColors(Mat hsvPic[], Rect graphArea,
         vector<gaussianCurve> &distribColors, Mat &maskColor, Mat mask){
-            int maxThresh = 20, maxGap = 4;
+            //int maxThresh = 20, maxGap = 3;
+            int maxThresh = 10, maxGap = 3;
             vector<int> nbrCurves;
             maskColor = Mat::zeros(mask.size(),CV_32SC1);
             vector<param2optimize> params{
-                {&maxThresh,"MaxRatioThreshold",50},
+                {&maxThresh,"MaxRatioThreshold",100},
                 {&maxGap,"MaxGap",100}
             };
 
@@ -234,7 +244,7 @@ namespace ogr{
             ///     Il faudra translater les valeurs récupérées par les médianes
             bool flagUp = false;
             int _gap = 0, _bias = 0;
-            double seuilMax = 1;
+            double seuilMax = maxV* *(params[0].paramAddress)/100;
             for(int l=0; l<180 && !flagUp; ++l){
                 if(histoH[l] > seuilMax){
                     _bias = l;

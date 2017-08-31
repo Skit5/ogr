@@ -217,12 +217,12 @@ namespace ogr{
 
                     /// Résolution à gauche
                     for(int l=_bStart[0]; l >= 0; --l){
-                        for(int g=0; g<crosses[l].size(); ++g){
+                   /*     for(int g=0; g<crosses[l].size(); ++g){
                             vector<int> nexts = crosses[l][g][1];
                             if(_bStar)
                         }
                         _mCoBatch = _bStart;
-
+                    */
                     }
                     /// Résolution à droite
                     for(int r=_bEnd[0]; r < batchNbr-1; ++r){
@@ -239,14 +239,14 @@ namespace ogr{
                     Vec4d polynom;
                     int height = densities[c].rows-1;
 
-                    //fitCustomPoly(mergedBatches[u], polynom, height);
+                    fitCustomPoly(mergedBatches[u], polynom, height);
                     //fitCubicPoly(mergedBatches[u], polynom, height);
 
                     //getFitLine(mergedBatches[u], 0.01, 0.01, _line);
                     //line(filteredPic, Point(_line[0],_line[1]), Point(_line[2],_line[3]),clrs[c],2);
                     if(DEBUG && (_curves[u].size() > *(params[3].paramAddress))){
-                    line(filteredPic, Point(_lTend[0],_lTend[1]), Point(_lTend[2],_lTend[3]),clrs[c],2);
-                    line(filteredPic, Point(_rTend[0],_rTend[1]), Point(_rTend[2],_rTend[3]),clrs[c],2);
+                    //line(filteredPic, Point(_lTend[0],_lTend[1]), Point(_lTend[2],_lTend[3]),clrs[c],2);
+                    //line(filteredPic, Point(_rTend[0],_rTend[1]), Point(_rTend[2],_rTend[3]),clrs[c],2);
                         Vec4i _lL, _lR;
                         int limit = max(1, *(params[2].paramAddress));
                         vector<Point> _bL, _bR;
@@ -276,7 +276,7 @@ namespace ogr{
                                 +polynom[3]/x);
                             y = height-y;
                             isContained = graphArea.contains(Point(x,y));
-                            if(isContained & false){
+                            if(isContained){
                                 filteredPic.at<Vec3b>(y,x) = Vec3b(clrs[c][0],clrs[c][1],clrs[c][2]);
                             }
                         }
