@@ -1,0 +1,24 @@
+server {
+	listen 80 default_server;
+	server_name localhost;
+	listen [::]:80 default_server ipv6only=on;
+
+	root "/home/youness/Documents/opencv scripts/www";
+	error_page 404 =200 /error.html;
+	index index.html controller.php index.php;
+
+	location / {
+		try_files /html/$uri /html/$uri/ /$uri/ /$uri /error.html;
+	}
+
+	location ~ ^/api/(.+\.php)$ {
+		fastcgi_split_path_info ^(.+\.php)(/.+)$;
+		fastcgi_pass unix:/run/php/php7.0-fpm.sock;
+		fastcgi_index index.php;
+		if ($1 = false){
+			set $1 "/server/controller.php";
+		}
+		fastcgi_param SCRIPT_FILENAME "/home/youness/Documents/opencv scripts/www/server/$1";
+		include fastcgi_params;
+	}
+}
