@@ -1,7 +1,6 @@
 <?php
-require_once('conf.php');
 
-function getList($sortBy=0, $orderAsc = true){
+function getList($pdo, $sortBy=0, $orderAsc = true){
 	$sortField = '';
 	switch($sortBy){
 		case 0:
@@ -19,8 +18,11 @@ function getList($sortBy=0, $orderAsc = true){
 	}
 	$orderType = (!$orderAsc)?'DESC':'ASC';
 
-	$query = $pdo->query('SELECT * FROM vehicules ORDER BY ? ?');
-	$query->execute(array($sortField,$orderType));
+	$query = $pdo->prepare('SELECT * FROM vehicules ORDER BY :field :type');
+	$query->execute(array(
+		':field' => $sortField,
+		':type' => $orderType
+		));
 
 	return $query->fetchAll(PDO::FETCH_ASSOC);
 

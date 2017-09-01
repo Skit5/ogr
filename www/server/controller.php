@@ -6,11 +6,13 @@ require_once('dao/read.php');
 require_once('dao/remove.php');
 require_once('dao/search.php');
 require_once('ogr.php');
-
+require_once('conf.php');
+header('Content-Type: application/json');
+$results = array();
 if($_POST) {
-	$data = json_decode(file_get_contents('php://input'), true);
-	print_r($data);
-}else{
-	echo "Yo!";
+	$post = $_POST;
+	if($post['q'] == 'list')
+		$results = getList($pdo);
 }
+echo json_encode($results);
 ?>
