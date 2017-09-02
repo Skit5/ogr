@@ -1,19 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <CodeBlocks_layout_file>
 	<ActiveTarget name="Debug" />
-	<File name="ogr-lib.h" open="1" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="-2" zoom_2="0">
+	<File name="cleaning.cpp" open="1" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="-2" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="1817" topLine="22" />
-		</Cursor>
-	</File>
-	<File name="main.cpp" open="1" top="1" tabpos="5" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="186" topLine="0" />
-		</Cursor>
-	</File>
-	<File name="ogr.cpp" open="1" top="0" tabpos="1" split="0" active="1" splitpos="0" zoom_1="-2" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="281" topLine="104" />
+			<Cursor1 position="33170" topLine="782" />
 		</Cursor>
 	</File>
 	<File name="optimizer.cpp" open="0" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
@@ -21,19 +11,29 @@
 			<Cursor1 position="302" topLine="0" />
 		</Cursor>
 	</File>
-	<File name="cleaning.cpp" open="1" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="-2" zoom_2="0">
+	<File name="numerisation.cpp" open="1" top="1" tabpos="4" split="0" active="1" splitpos="0" zoom_1="-2" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="9684" topLine="188" />
+			<Cursor1 position="2445" topLine="60" />
+		</Cursor>
+	</File>
+	<File name="ogr.cpp" open="1" top="0" tabpos="1" split="0" active="1" splitpos="0" zoom_1="-2" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="4856" topLine="95" />
 		</Cursor>
 	</File>
 	<File name="detection.cpp" open="1" top="0" tabpos="6" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="392" topLine="0" />
+			<Cursor1 position="28378" topLine="669" />
 		</Cursor>
 	</File>
-	<File name="numerisation.cpp" open="1" top="0" tabpos="4" split="0" active="1" splitpos="0" zoom_1="-2" zoom_2="0">
+	<File name="ogr-lib.h" open="1" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="-2" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="12588" topLine="183" />
+			<Cursor1 position="12348" topLine="287" />
+		</Cursor>
+	</File>
+	<File name="main.cpp" open="1" top="0" tabpos="5" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="186" topLine="0" />
 		</Cursor>
 	</File>
 </CodeBlocks_layout_file>

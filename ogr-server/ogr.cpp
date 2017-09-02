@@ -85,15 +85,15 @@ namespace ogr{
         //Mat maskColor;
         getColors(hsvSplitted, graphArea, distribColors, maskColor, bgMask);
 
-        vector<vector<Point>> contClean, contCleaner;
-        vector<Vec4i> hierClean, hierCleaner;
-        vector<vector<Point>> approx;
-        filterCurveBg(hsvSplitted,contours, hierarchy, contClean, hierClean, contCleaner, hierCleaner,
-            approx, horizontales, verticales, graphArea);
+        //vector<vector<Point>> contClean, contCleaner;
+        //vector<Vec4i> hierClean, hierCleaner;
+        //vector<vector<Point>> approx;
+        //vector<Mat> densities;
+        //filterBg(hsvSplitted, )
+        //filterCurveBg(hsvSplitted,contours, hierarchy, contClean, hierClean, contCleaner, hierCleaner,
+        //    approx, horizontales, verticales, graphArea);
 
-        vector<vector<vector<int>>> colored;
-        vector<Mat> densities;
-        sortCurvesByColor(hsvSplitted[0], contClean, distribColors, noQuadEdges, colored, densities);
+        //sortCurvesByColor(hsvSplitted[0], contClean, distribColors, noQuadEdges, colored, densities);
 
         //vector<vector<Point>> contColor = {};
         //vector<int> hierColor = {};
@@ -115,8 +115,16 @@ namespace ogr{
         /****************************
         //  VECTORISATION
         ****************************/
-        vector<vector<vector<int>>> curves;
-        extractStrokes(densities, colored, graphArea, curves);
+        vector<vector<vector<int>>> colored;
+        vector<Mat> densities;
+        getCurvesStrokes(hsvSplitted[0], distribColors, noQuadEdges, colored, densities);
+
+
+        void getCurves(vector<Mat> densities, vector<vector<vector<int>>> colored,
+        Rect graphArea, vector<vehicule> &vhcs);
+
+        //vector<vector<vector<int>>> curves;
+        //extractStrokes(densities, colored, graphArea, curves);
 
         /// Détection des courbes
         //detectCurves(colorMasks, detectedCurves);

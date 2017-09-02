@@ -807,7 +807,7 @@ namespace ogr{
                 }
                 getDensityMat(binPic, *(params[0].paramAddress), densPic);
                 vector<vector<int>> centers;
-                integrateYEdges(densPic, edgePic, edFiltPic, *(params[1].paramAddress), centers);
+                integrateYEdges(densPic, edgePic, edFiltPic, colors[c], *(params[1].paramAddress), centers);
 
                 coloredPts[c] = centers;
                 densities[c] = densPic;
@@ -865,7 +865,7 @@ namespace ogr{
             }
         }
     }*/
-    void integrateYEdges(Mat pic, Mat mask, Mat &filteredPic, int errLength, vector<vector<int>> &centers){
+    void integrateYEdges(Mat pic, Mat mask, Mat &filteredPic, gaussianCurve color, int errLength, vector<vector<int>> &centers){
         centers = vector<vector<int>>(mask.cols);
         filteredPic = Mat::zeros(pic.size(), CV_8UC1);
         for(int i=0; i<mask.cols; ++i){
@@ -875,8 +875,9 @@ namespace ogr{
 
             for(int j=0; j<mask.rows; ++j){
                 bool mVal =  ((int)mask.at<uchar>(j,i) > 0);
-                int pVal =  (int)pic.at<uchar>(j,i);
-                if(pVal*mVal > 0){
+                int h =  (int)pic.at<uchar>(j,i);
+                bool pVal = (abs(h-color.mean) <= color.sigma);
+                if(mVal*pVal){
                     if(onStroke)
                         _end = j;
                     else{

@@ -3,8 +3,92 @@
 namespace ogr{
 
     ///
-    /// STROKES
+    /// INTEGRATE STROKES
     ///
+
+    void getCurvesStrokes(Mat hPic, vector<gaussianCurve> colors, Mat edgePic,
+        vector<vector<vector<int>>> &coloredPts, vector<Mat> &densities){
+
+        int xPos = 0, kernel = 7, w = 5;
+        coloredPts = vector<vector<vector<int>>>(colors.size());
+        densities = vector<Mat>(colors.size());
+
+        vector<param2optimize> params{
+            {&kernel,"Kernel Size (2n+1)",10},
+            {&w,"Stroke Width",20},
+            {&xPos,"Color",colors.size()}
+        };
+
+        optimizer(params, [=, &coloredPts, &densities]()->Mat{
+            Mat sortedPic = Mat::zeros(hPic.size(), CV_8UC3);
+            for(int c=0; c<colors.size(); ++c){
+                /*Mat binPic = Mat::zeros(hPic.size(), CV_8UC1),
+                    densPic, edFiltPic;
+                int maxDens;
+                for(int i=0; i<cont.size(); ++i){
+                    for(int j=0; j<cont[i].size(); ++j){
+                        if(colored[i][j] == c){
+                            Point _p = cont[i][j];
+                            binPic.at<uchar>(_p.y,_p.x) = 1;
+                        }
+
+                    }
+                }
+                getDensityMat(binPic, *(params[0].paramAddress), densPic);*/
+                vector<vector<int>> centers;
+                Mat edFiltPic;
+                integrateYEdges(hPic, edgePic, edFiltPic, colors[c], *(params[1].paramAddress), centers);
+
+                coloredPts[c] = centers;
+                densities[c] = edFiltPic;
+                if(DEBUG){
+                    int clr2disp = *(params[2].paramAddress)-1;
+                    if(clr2disp < 0 || clr2disp == c){
+                        Vec3b clr = Vec3b(colors[c].mean, 255, 255);
+                        for(int i=0; i<hPic.cols; ++i){
+                            for(int j=0; j<hPic.rows; ++j){
+                                //int density = densPic.at<uchar>(j,i);
+                                int intMask = edFiltPic.at<uchar>(j,i);
+                                //Vec3b _current = sortedPic.at<Vec3b>(j,i);
+                                //if(density > (int)_current[2]){
+                                if(0 < intMask)
+                                    sortedPic.at<Vec3b>(j,i) = clr;
+                                    /*if(0 < intMask)
+                                        filteredPic.at<Vec3b>(j,i) = Vec3b(colors[c].mean, 255, 255);*/
+                                //}
+                            }
+                        }
+                        for(int center=0; center<centers.size(); ++center){
+                            for(int l=0; l<centers[center].size(); ++l){
+                                Point pos(center, centers[center][l]);
+                                circle(sortedPic,pos,3,clr);
+                            }
+                        }
+                    }
+
+                }
+            }
+            cvtColor(sortedPic, sortedPic, CV_HSV2BGR);
+            return sortedPic;
+        });
+
+
+        return;
+
+    }
+
+    ///
+    /// GET CURVES
+    ///
+
+    void getCurves(vector<Mat> densities, vector<vector<vector<int>>> colored,
+        Rect graphArea, vector<vehicule> &vhcs){
+    }
+    void extractCurves(Mat densMat, vector<vector<int>> colored, vector<vector<int>> &curves){
+    }
+    void filterCurves(vector<vector<int>> curves, vehicule &filteredCurves){
+
+    }
 
     void extractStrokes(vector<Mat> densities, vector<vector<vector<int>>> colored,
         Rect graphArea, vector<vector<vector<int>>> &curves){

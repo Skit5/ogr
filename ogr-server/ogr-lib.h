@@ -32,6 +32,10 @@ namespace ogr{
         Vec4d params;
         int lowerBound, higherBound, hue;
     };
+    struct vehicule{
+        Vec2i domain;
+        vector<int> P,C;
+    };
     struct extractedGraph{
         int xmin, xmax, ymin, ymax;
         vector<vector<splineCubic> > splinesP, splinesC;
@@ -292,11 +296,19 @@ namespace ogr{
     void getDensityMat(Mat binPic, int kernel, Mat &densPic, double threshDens, int &maxDens, int kMax=-1);
     void getDensityMat(Mat binPic, int kernel, Mat &densPic);
     void getSlidy(Mat in1, Mat in2, Mat &out1, int slidy);
-    void integrateYEdges(Mat pic, Mat mask, Mat &filteredPic, int errLength, vector<vector<int>>&);
+    void integrateYEdges(Mat pic, Mat mask, Mat &filteredPic, gaussianCurve, int errLength, vector<vector<int>>&);
     void integrateXDensity(Mat densPic, vector<vector<int>>, int kernel, int width, vector<Mat> &intPic);
     void getFitLine(vector<Point> conts, double reps, double aeps, Vec4i &line);
 
     /****** VECTORISATION ******/
+    void getCurvesStrokes(Mat hPic, vector<gaussianCurve> colors, Mat edgePic,
+        vector<vector<vector<int>>> &coloredPts, vector<Mat> &densities);
+    void getCurves(vector<Mat> densities, vector<vector<vector<int>>> colored,
+        Rect graphArea, vector<vehicule> &vhcs);
+    void extractCurves(Mat densMat, vector<vector<int>> colored, vector<vector<int>> &curves);
+    void filterCurves(vector<vector<int>> curves, vehicule &filteredCurves);
+
+
     void extractStrokes(vector<Mat> densities, vector<vector<vector<int>>> colored,
         Rect graphArea, vector<vector<vector<int>>> &curves);
     void getBatches(vector<vector<int>> centers, int batchNbr, int kSize, int, vector<vector<Point>> &batches);
