@@ -13,6 +13,10 @@ if($_POST) {
 	$post = $_POST;
 	if($post['q'] == 'list')
 		$results = getList($pdo);
+	if($post['q'] == 'read'){
+		if($post['vhc'])
+			$results = getDataPoints($pdo, $post['vhc']);
+	}
 }
 echo json_encode($results);
 ?>
