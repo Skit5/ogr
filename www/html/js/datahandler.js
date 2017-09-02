@@ -38,8 +38,8 @@ function addCurve(vhc, entries){
 			C : 715.95*item['P']/item['w']
 		});*/
 		w.push(item['w']);
-		P.push(item['P']);
-		C.push(715.95*item['P']/item['w']); //702.35
+		C.push(item['C']);
+		P.push(item['C']*item['w']/702.35);
 	});
 	console.log(dataPoints);
 	/*var ctx = new Chart(document.getElementById("myChart").getContext("2d"), {
@@ -53,11 +53,11 @@ function addCurve(vhc, entries){
 	  data: {
 	    labels: w,
 	    datasets: [{
-	      label: vhc,
+	      label: vhc+' P',
 	      yAxisID: 'P',
 	      data: P
 	    }, {
-	      label: 'C',
+	      label: vhc+' C',
 	      yAxisID: 'C',
 	      data: C
 	    }]
