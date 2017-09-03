@@ -119,10 +119,8 @@ namespace ogr{
         vector<Mat> densities;
         getCurvesStrokes(hsvSplitted[0], distribColors, noQuadEdges, colored, densities);
 
-
-        void getCurves(vector<Mat> densities, vector<vector<vector<int>>> colored,
-        Rect graphArea, vector<vehicule> &vhcs);
-
+        vector<vehicule> vhcs;
+        getCurves(hsvSplitted[0], graphArea, densities, colored, vhcs);
         //vector<vector<vector<int>>> curves;
         //extractStrokes(densities, colored, graphArea, curves);
 

@@ -301,9 +301,10 @@ namespace ogr{
     void getFitLine(vector<Point> conts, double reps, double aeps, Vec4i &line);
 
     /****** VECTORISATION ******/
+    void getClipBatchs(vector<vector<int>> centers, int k, Rect zone, vector<vector<vector<Point>>> &batchs, vector<vector<Rect>> &bZones, int &nbrC);
     void getCurvesStrokes(Mat hPic, vector<gaussianCurve> colors, Mat edgePic,
         vector<vector<vector<int>>> &coloredPts, vector<Mat> &densities);
-    void getCurves(vector<Mat> densities, vector<vector<vector<int>>> colored,
+    void getCurves(Mat,vector<Mat> densities, vector<vector<vector<int>>> colored,
         Rect graphArea, vector<vehicule> &vhcs);
     void extractCurves(Mat densMat, vector<vector<int>> colored, vector<vector<int>> &curves);
     void filterCurves(vector<vector<int>> curves, vehicule &filteredCurves);
