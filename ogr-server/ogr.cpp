@@ -120,7 +120,7 @@ namespace ogr{
         getCurvesStrokes(hsvSplitted[0], distribColors, noQuadEdges, colored, densities);
 
         vector<vehicule> vhcs;
-        getCurves(hsvSplitted[0], graphArea, densities, colored, vhcs);
+        getCurves(hsvSplitted[0], densities, colored, graphArea, vhcs);
         //vector<vector<vector<int>>> curves;
         //extractStrokes(densities, colored, graphArea, curves);
 
