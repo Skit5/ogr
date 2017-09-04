@@ -7,42 +7,61 @@ namespace ogr{
     ///
 
     void getCurvesStrokes(Mat hPic, vector<gaussianCurve> colors, Mat edgePic,
-        vector<vector<vector<int>>> &coloredPts, vector<Mat> &densities){
+        vector<vector<vector<int>>> &coloredPts, vector<Mat> &densities, vector<int> &nbrC){
 
-        int xPos = 0, kernel = 7, w = 5;
+        int xPos = 0, kernel = 7, w = 0;
         coloredPts = vector<vector<vector<int>>>(colors.size());
+        nbrC = vector<int>(colors.size());
         densities = vector<Mat>(colors.size());
 
         vector<param2optimize> params{
-            {&kernel,"Kernel Size (2n+1)",10},
+            {&kernel,"Kernel Size Morph",20},
             {&w,"Stroke Width",20},
             {&xPos,"Color",colors.size()}
         };
 
-        optimizer(params, [=, &coloredPts, &densities]()->Mat{
+        optimizer(params, [=, &coloredPts, &densities, &nbrC]()->Mat{
             Mat sortedPic = Mat::zeros(hPic.size(), CV_8UC3);
             for(int c=0; c<colors.size(); ++c){
                 vector<vector<int>> centers;
                 Mat edFiltPic;
+
                 integrateYEdges(hPic, edgePic, edFiltPic, colors[c], *(params[1].paramAddress), centers);
+
+                if(*(params[0].paramAddress) > 0){
+                    Mat element = getStructuringElement(MORPH_RECT,Size(*(params[0].paramAddress),*(params[0].paramAddress)));
+                    morphologyEx(edFiltPic,edFiltPic, MORPH_DILATE, element);
+                    morphologyEx(edFiltPic,edFiltPic, MORPH_OPEN, element);
+                    //morphologyEx(edFiltPic,edFiltPic, MORPH_ERODE, element);
+                }
+                int cCounter = 0, cCount = 0;
+                for(int center=0; center<centers.size(); ++center){
+                    if(centers[center].size()>0){
+                        ++cCounter;
+                        cCount += centers[center].size();
+                    }
+                }
 
                 coloredPts[c] = centers;
                 densities[c] = edFiltPic;
+                nbrC[c] = (cCount/cCounter < 1.5)? 1: 2;
                 if(DEBUG){
+                    cout<<"Detected curves for color "<<c<<" = "<<nbrC[c]<<endl;
                     int clr2disp = *(params[2].paramAddress)-1;
                     if(clr2disp < 0 || clr2disp == c){
                         Vec3b clr = Vec3b(colors[c].mean, 255, 255);
+                        Vec3b gClr = Vec3b(colors[c].mean, 255, 125);
                         for(int i=0; i<hPic.cols; ++i){
                             for(int j=0; j<hPic.rows; ++j){
                                 int intMask = edFiltPic.at<uchar>(j,i);
                                 if(0 < intMask)
-                                    sortedPic.at<Vec3b>(j,i) = clr;
+                                    sortedPic.at<Vec3b>(j,i) = gClr;
                             }
                         }
                         for(int center=0; center<centers.size(); ++center){
                             for(int l=0; l<centers[center].size(); ++l){
                                 Point pos(center, centers[center][l]);
-                                circle(sortedPic,pos,3,clr);
+                                circle(sortedPic,pos,1,clr);
                             }
                         }
                     }

@@ -83,7 +83,9 @@ namespace ogr{
         /// Détection des couleurs
         //getColors(hsvSplitted, graphArea, distribColors, bgMask);
         //Mat maskColor;
-        getColors(hsvSplitted, graphArea, distribColors, maskColor, bgMask);
+        vector<Mat> clrMasks;
+        //getColors(hsvSplitted, graphArea, distribColors, maskColor, bgMask);
+        getColors(hsvSplitted, graphArea, distribColors, bgMask, clrMasks);
 
         //vector<vector<Point>> contClean, contCleaner;
         //vector<Vec4i> hierClean, hierCleaner;
@@ -117,7 +119,8 @@ namespace ogr{
         ****************************/
         vector<vector<vector<int>>> colored;
         vector<Mat> densities;
-        getCurvesStrokes(hsvSplitted[0], distribColors, noQuadEdges, colored, densities);
+        vector<int> nbrC;
+        getCurvesStrokes(hsvSplitted[0], distribColors, bgMask, colored, densities, nbrC);
 
         vector<vehicule> vhcs;
         getCurves(hsvSplitted[0], densities, colored, graphArea, vhcs);

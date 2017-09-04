@@ -234,6 +234,8 @@ namespace ogr{
     */
     //void getColors(Mat hsvSplitted[], Rect graphArea, vector<gaussianCurve> &distribColors, Mat bgMask);
     void getColors(Mat hsvPic[], Rect graphArea,
+        vector<gaussianCurve> &distribColors, Mat mask, vector<Mat> &masks);
+    void getColors(Mat hsvPic[], Rect graphArea,
         vector<gaussianCurve> &distribColors, Mat &maskColor, Mat mask);
 
     void sortEdgesByColor(Mat huePic, Mat edgePic, vector<gaussianCurve> distribColors, Rect zone, vector<Mat> colorMasks);
@@ -303,7 +305,7 @@ namespace ogr{
     /****** VECTORISATION ******/
     void getClipBatchs(vector<vector<int>> centers, int k, Rect zone, vector<vector<vector<Point>>> &batchs, vector<vector<Rect>> &bZones, int &nbrC);
     void getCurvesStrokes(Mat hPic, vector<gaussianCurve> colors, Mat edgePic,
-        vector<vector<vector<int>>> &coloredPts, vector<Mat> &densities);
+        vector<vector<vector<int>>> &coloredPts, vector<Mat> &densities,vector<int> &);
     void getCurves(Mat,vector<Mat> densities, vector<vector<vector<int>>> colored,
         Rect graphArea, vector<vehicule> &vhcs);
     void extractCurves(Mat densMat, vector<vector<Rect>> bZones, int nbrC, vector<vector<int>> &curves, double, int &b);
