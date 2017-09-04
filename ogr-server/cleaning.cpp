@@ -7,16 +7,16 @@ namespace ogr{
     ****************************/
     void getBgMask(Mat hsvSplitted[], Mat edgeMask, Mat &mask, Mat &edgeCleanMask, Rect zone,
         vector<Vec4i> vers, vector<Vec4i> hors){
-        int thresh = 6, scale = 2, margin = 50, threshSV = 40;
+        int thresh = 6, scale = 2, margin = 50, threshSV = 40, w=0;
         vector<param2optimize> params{
             {&thresh,"HistoMaxGap",100},
             {&margin,"VarMargin",100},
-            {&scale,"ScaleRatio",10},
+            {&w,"",edgeMask.cols-1},
             {&threshSV,"SVThreshold",100}
         };
         optimizer(params, [=, &mask, &edgeCleanMask]()->Mat{
             int maxId = -1;
-            int k = (*(params[2].paramAddress)<1)? 1: *(params[2].paramAddress);
+            int k = (scale<1)? 1: scale;
             Mat picZone(hsvSplitted[2], zone), shrinkedPicZone;
                 edgeCleanMask = Mat::zeros(hsvSplitted[2].size(),hsvSplitted[2].type());
                 mask = Mat::zeros(hsvSplitted[2].size(),hsvSplitted[2].type());
@@ -159,16 +159,22 @@ namespace ogr{
                 if(hors[i][0]>=zone.y && hors[i][0]<zone.y+zone.height){
                     for(int j=zone.x; j<zone.x+zone.width; ++j){   /// Pour chaque largeur
                         int _startP = max(round(hors[i][0]-(epaissMed/2)-1), round(zone.y)),
-                            _endP = min(round(_startP+epaissMed)+1, round(zone.y+zone.height));
+                            _endP = min(round(_startP+epaissMed)+1, round(zone.y+zone.height-1));
                         for(int w=_startP; w<_endP; ++w){
                             /// Pour chaque point dans l'épaisseur
-                            int locVal = hsvSplitted[2].at<uchar>(w,j);
-                                //edgeCleanMask.at<uchar>(w,j) = 0x5F;
+                            int locVal = hsvSplitted[2].at<uchar>(w,j),
+                                sVal = hsvSplitted[1].at<uchar>(w,j);
+                            bool testEdge = (
+                                (sqrt(locVal*sVal)/255 > (double)*(params[3].paramAddress) /100) /// filtre SV
+                                && (locVal<_lineInf || locVal>_lineSup) /// filtre ligne
+                                && (locVal<_maxInf || locVal>_maxSup) /// filtre fond
+                            );
+                            //if(!testEdge)
                                 edgeCleanMask.at<uchar>(w,j) = 0x0;
                             //if((locVal>=_lineInf) && (locVal<=_lineSup)){   /// Filtre de couleur de ligne
                                 //cout<<_lineInf<<" "<<locVal<<" "<<_lineSup<<endl;
                                 //cout<<locVal<<endl;
-                                mask.at<uchar>(w,j) = 0x00;
+                            mask.at<uchar>(w,j) = 0x00;
                                 //cout<<w<<","<<j<<endl;
                             //}
                         }
@@ -179,20 +185,32 @@ namespace ogr{
                 if(vers[i][0]>=zone.x && vers[i][0]<zone.x+zone.width){
                     for(int j=zone.y; j<zone.y+zone.height; ++j){   /// Pour chaque largeur
                         int _startP = max(round(vers[i][0]-(epaissMed/2)-1), round(zone.x)),
-                            _endP = min(round(_startP+epaissMed)+1, round(zone.x+zone.width));
+                            _endP = min(round(_startP+epaissMed)+1, round(zone.x+zone.width-1));
                         for(int w=_startP; w<_endP; ++w){
                             /// Pour chaque point dans l'épaisseur
-                            int locVal = hsvSplitted[2].at<uchar>(j,w);
-                            edgeCleanMask.at<uchar>(j,w) = 0x0;
-                            //if((locVal>=_lineInf) && (locVal<=_lineSup)){   /// Filtre de couleur de ligne
-                                mask.at<uchar>(j,w) = 0x00;
-                            //}
+                            int locVal = hsvSplitted[2].at<uchar>(w,j),
+                                sVal = hsvSplitted[1].at<uchar>(w,j);
+                            bool testEdge = (
+                                (sqrt(locVal*sVal)/255 > (double)*(params[3].paramAddress) /100) /// filtre SV
+                                && (locVal<_lineInf || locVal>_lineSup) /// filtre ligne
+                                && (locVal<_maxInf || locVal>_maxSup) /// filtre fond
+                            );
+                            //if(!testEdge)
+                                edgeCleanMask.at<uchar>(j,w) = 0x0;
+                            mask.at<uchar>(j,w) = 0x00;
                         }
                     }
                 }
             }
             //edgeMask = edgeCleanMask.clone();
-            return mask;
+            Mat _mask, _edgeCM;
+            if(DEBUG){
+                int slidy = min(*(params[2].paramAddress),edgeMask.cols-1);
+                cvtColor(mask, _mask, CV_GRAY2BGR);
+                cvtColor(edgeCleanMask, _edgeCM, CV_GRAY2BGR);
+                getSlidy(_mask, _edgeCM, _mask, slidy);
+            }
+            return _mask;
         });
         return;
 
@@ -892,7 +910,7 @@ namespace ogr{
                     maxDens = mVal;
                     _mDens = j;
                 }
-                if((j-_start >= errLength) || (j+1 == mask.rows)){
+                if(((j-_start >= errLength) || (j+1 == mask.rows))&&onStroke){
                     for(int k = _start; k <= _end; ++k){
                         filteredPic.at<uchar>(k,i) = 1;
                     }

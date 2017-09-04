@@ -73,6 +73,7 @@ namespace ogr{
 
         vector<param2optimize> params{
             {&kernel,"Kernel Size (2n+1)",50},
+            {&w,"Inertie",50},
             {&bT,"Curve",2*densities.size()}
         };
 
@@ -94,14 +95,14 @@ namespace ogr{
                 cout<<"prout2"<<endl;
                 vector<vector<int>> curves;
                 int b;
-                extractCurves(densities[c], bZones, nbrC, curves, b);
+                extractCurves(densities[c], bZones, nbrC, curves, 1/max(1,*(params[2].paramAddress)), b);
 
                 cout<<"prout3"<<endl;
                 //filterCurves(curves, vhcs[c]);
                 if(DEBUG){
                     cout<<"Nbr of Curves for color["<<c<<"]: "<<nbrC<<endl;
                     Scalar clr = clrs[c];
-                    int curve2disp = *(params[1].paramAddress)-1;
+                    int curve2disp = *(params[2].paramAddress)-1;
                     if(curve2disp < 0){
                         for(int u=0; u<bZones.size(); ++u){
                             for(int v=0; v<bZones[u].size(); ++v){
@@ -208,7 +209,7 @@ namespace ogr{
         return;
     }
 
-    void extractCurves(Mat densMat, vector<vector<Rect>> bZones, int nbrC, vector<vector<int>> &curves, int &b){
+    void extractCurves(Mat densMat, vector<vector<Rect>> bZones, int nbrC, vector<vector<int>> &curves, double inertie, int &b){
         b = 0;
         curves = vector<vector<int>>(nbrC);
         vector<vector<Point>> bufferPts(nbrC);
@@ -236,18 +237,28 @@ namespace ogr{
         cout<<"prout2.2"<<endl;
         /// increment curves
         for(int c=0; c<nbrC; ++c){
-            vector<Point> ptsBuff;
-            //Vec4f tendency;
+
+            cout<<"yoC:"<<c<<"/"<<nbrC<<endl;
+            if(curves[c].size() == 0)
+                continue;
+            //vector<Point> ptsBuff;
+            Vec4f tendency;
             Rect _bZone = bZones[b][curves[c][0]], _bZoneTranslated;
-            //getTendency(Mat(densMat, _bZone), _bZone, tendency);
+            if(_bZone.area() == 0)
+                continue;
+        cout<<"prout2.20"<<endl;
+        cout<<"bz "<<_bZone.area()<<endl;
+            getTendency(Mat(densMat, _bZone), _bZone, tendency);
             int pos = b;
-            mask2points(Mat(densMat, _bZone), _bZone, ptsBuff);
-            Vec4d coefs;
-            int height = densMat.rows-1;
-            fitCustomPoly(ptsBuff, coefs, height);
+            //mask2points(Mat(densMat, _bZone), _bZone, ptsBuff);
+            //Vec4d coefs;
+            //int height = densMat.rows-1;
+            //fitCustomPoly(ptsBuff, coefs, height);
         cout<<"prout2.21"<<endl;
             for(int a=b+1; a<bZones.size(); ++a){
-                getProjection(_bZone, coefs, height, _bZoneTranslated);
+
+                cout<<"yoA:"<<a<<"/"<<bZones.size()<<endl;
+                getProjection(_bZone, tendency, _bZoneTranslated);
                 int _batch = -1;
                 double _area = 0;
 
@@ -265,20 +276,28 @@ namespace ogr{
                 if(_batch >= 0){
                     pos = a;
                     Rect _next = bZones[a][_batch];
-                    vector<Point> _pts;
-                    mask2points(Mat(densMat, _next), _next, _pts);
-                    ptsBuff.insert(ptsBuff.end(), _pts.begin(), _pts.end());
-                    fitCustomPoly(ptsBuff, coefs, densMat.rows-1);
-                    cout<<"coef: "<<coefs<<endl;
-                    //Vec4f _tendency;
-                    //getTendency(Mat(densMat, _next), _next, _tendency);
-                    //updateTendency(tendency, _tendency, inertie);
+                    if(_next.area()<_bZone.area()){
+                        _next.height = _bZone.height;
+                    }
+                    //vector<Point> _pts;
+                    //mask2points(Mat(densMat, _next), _next, _pts);
+                    //ptsBuff.insert(ptsBuff.end(), _pts.begin(), _pts.end());
+                    //fitCustomPoly(ptsBuff, coefs, densMat.rows-1);
+                    //cout<<"coef: "<<coefs<<endl;
+                    Vec4f _tendency;
+                    cout<<"KATA"<<endl;
+                    getTendency(Mat(densMat, _next), _next, _tendency);
+                    cout<<"SOKA"<<endl;
+                    updateTendency(tendency, _tendency, inertie);
+                    cout<<"AANG"<<endl;
                     _bZone = _next;
                 }
                 cout<<c<<" ["<<a<<": "<<_batch<<"]"<<endl;
 
                 curves[c].push_back(_batch);
+                cout<<"yoA:"<<a<<"/"<<bZones.size()<<endl;
             }
+            cout<<"yoC:"<<c<<"/"<<nbrC<<endl;
         }
         cout<<"prout2.3"<<endl;
         return;
@@ -293,6 +312,7 @@ namespace ogr{
                 }
             }
         }
+        cout<<"bp size "<<buffP.size()<<endl;
         if(buffP.size()>1)
             fitLine(buffP, tendency, CV_DIST_L2, 0, 0.01, 0.01);
         return;
@@ -314,6 +334,8 @@ namespace ogr{
         _bZoneTranslated = _bZone;
         _bZoneTranslated.x += k+1;
         _bZoneTranslated.y += y;
+        if(_bZoneTranslated.height < k)
+            _bZoneTranslated.height = k;
         return;
     }
     void getProjection(Rect _bZone, Vec4d params, int height, Rect &_bZoneTranslated){
@@ -327,8 +349,8 @@ namespace ogr{
         return;
     }
     void updateTendency(Vec4f &tendency, Vec4f _tendency, double inertie){
-        tendency[0] = ((1-inertie)*tendency[0]) + (inertie*_tendency[0]);
-        tendency[1] = ((1-inertie)*tendency[1]) + (inertie*_tendency[1]);
+        tendency[0] = ((inertie)*tendency[0]) + ((1-inertie)*_tendency[0]);
+        tendency[1] = ((inertie)*tendency[1]) + ((1-inertie)*_tendency[1]);
         return;
     }
 

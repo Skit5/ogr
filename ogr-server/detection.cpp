@@ -439,7 +439,7 @@ namespace ogr{
             return (a[0]<b[0]);
         });
 
-        optimizer(params, [=, &outputHisto]()->Mat{
+        //optimizer(params, [=, &outputHisto]()->Mat{
             Mat intLines;
             vector<Vec4i> _outHisto;
             vector<Vec3i> lineBuffer;
@@ -523,7 +523,7 @@ namespace ogr{
 
             outputHisto = _outHisto;
 
-            /// Pour le debug, on affiche les lignes d'origines
+            /*/// Pour le debug, on affiche les lignes d'origines
             /// comparées aux lignes intégrées
             if(DEBUG){
                 cout<<"== Integration des lignes =="<<endl
@@ -555,7 +555,7 @@ namespace ogr{
             }
 
             return intLines;
-        });
+        });*/
 
 
         return;

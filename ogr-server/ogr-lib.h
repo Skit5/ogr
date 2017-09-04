@@ -306,7 +306,7 @@ namespace ogr{
         vector<vector<vector<int>>> &coloredPts, vector<Mat> &densities);
     void getCurves(Mat,vector<Mat> densities, vector<vector<vector<int>>> colored,
         Rect graphArea, vector<vehicule> &vhcs);
-    void extractCurves(Mat densMat, vector<vector<Rect>> bZones, int nbrC, vector<vector<int>> &curves, int &b);
+    void extractCurves(Mat densMat, vector<vector<Rect>> bZones, int nbrC, vector<vector<int>> &curves, double, int &b);
     void getTendency(Mat mask, Rect zone, Vec4f &tendency);
     void mask2points(Mat mask, Rect zone, vector<Point> &points);
     void getProjection(Rect _bZone, Vec4f tendency, Rect &_bZoneTranslated);
