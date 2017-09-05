@@ -81,6 +81,196 @@ namespace ogr{
     /// GET CURVES
     ///
 
+    void getCurves(vector<Mat> densities, vector<vector<vector<int>>> colored, vector<int> nbrC, Rect graphArea, vector<vehicule> &vhcs){
+
+        int kernel = 18, w = 2, bT = 0;
+        RNG rng(12345);
+        vector<Scalar> clrs;
+        for(int d=0; d<densities.size(); ++d)
+            clrs.push_back(Scalar(rng.uniform(0,179),255,255));
+
+        vector<param2optimize> params{
+            {&kernel,"Mem",50},
+            {&w,"Inertie",50},
+            {&bT,"Curve",2*densities.size()}
+        };
+
+        optimizer(params, [=, &vhcs]()->Mat{
+            vhcs= vector<vehicule>(densities.size());
+            Mat filteredPic = Mat::zeros(densities[0].size(), CV_8UC3);
+            int kernel = *(params[0].paramAddress), kSize = 2*kernel+1,
+                widthMargin = max(min(*(params[1].paramAddress), kSize),1); /// Si 0, trop de calculs
+            int batchNbr = ceil(densities[0].cols/kSize);
+
+            /// Pour chaque couleur
+            for(int c=0; c<densities.size(); ++c){
+                /// On initialise les vecteurs
+                int b = 0;
+                vector<Vec2i> subDoms;
+                getSubDomains(densities[c], nbrC[c], subDoms);
+                if(subDoms.size() == 0)
+                    continue;
+                else if(abs(subDoms[0][0]-subDoms[0][1]) <= *(params[1].paramAddress))
+                    subDoms.remove(subDoms.begin());
+                vector<vector<vector<int>>> vectors(subDoms.size());
+                /// On clusterise les points par courbe sur les segments sûrs
+                for(int u=0; u<subDoms.size(); ++u){
+                    /*if(abs(subDoms[u][0]-subDoms[u][1]) <= *(params[1].paramAddress))
+                        continue;*/
+                    vectors[u] = vector<vector<int>>(nbrC[c]);
+                    for(int x=subDoms[u][0]; u<=subDoms[u][1]; ++u){
+                        vector<int> _centers = colored[c][x];
+                        for(int v=0;v<nbrC[c].size() && (_centers.size()-v)>0;++v){
+                            vectors[u][v].push_back(_centers[v]);
+                        }
+                    }
+                }
+                /// Si on a 2 courbes, on doit avoir une inversion qu'on va chercher
+                if(nbrC[c] == 2){
+                    int invert = -1;
+                    for(int u=0; u<subDoms.size()-1 && invert == -1; ++u){
+                        vector<Vec4f> tendencies(2);
+                        for(int n=0; n<nbrC[c].size(); ++n){
+                            vector<int> vec = vectors[u][n];
+                            if(vec.size() == 0)
+                                continue;
+                            int _mem = min(vec.size(), *(params[0].paramAddress));
+                            vector<Point> _buff(vec.end()-_mem-1,vec.end()-1);
+                            Vec4f tendency;
+                            fitLine(_buff,tendency, CV_DIST_L2, 0, 0.01, 0.01);
+
+                    }
+
+                }
+
+
+
+                }
+                /*for(int n=0; n<nbrC[c].size(); ++n){
+                    for(int u=0; u<subDoms.size()-1; ++u){
+                        vector<int> vec = vectors[u][n];
+                        if(vec.size() == 0)
+                            continue;
+                        int _mem = min(vec.size(), *(params[0].paramAddress));
+                        vector<Point> _buff(vec.end()-_mem-1,vec.end()-1);
+                        Vec4f tendency;
+                        fitLine(_buff,tendency, CV_DIST_L2, 0, 0.01, 0.01);
+
+                    }
+                }*/
+
+                /*while(colored[c][b].size() != nbrC[c] && b<colored[c].size())
+                    ++b;
+                if(b+1 >= colored[c].size())
+                    return;
+                for(int n=0; n<nbrC[c].size(); ++n){
+                    vectors[n] = vector<int>(graphArea.width);
+                    vectors[n][0] = colored[c][b][n];
+                }*/
+
+
+                if(DEBUG){
+                    cout<<"Nbr of Curves for color["<<c<<"]: "<<nbrC[c]<<endl;
+                    Scalar clr = clrs[c], gClr = clr;
+                    gClr[2] = 100;
+                    int curve2disp = *(params[2].paramAddress)-1;
+                    if(curve2disp < 0){
+                        for(int v=0;v<subDoms.size();++v){
+                            Vec2i dom = subDoms[v];
+                            rectangle(filteredPic, Rect(Point(dom[0],graphArea.y),Point(dom[1],graphArea.y+graphArea.height)),gClr, -1);
+                            //line(filteredPic, Point(dom[0],graphArea.y),Point(dom[0],graphArea.y+graphArea.height), clr, 2);
+                            //line(filteredPic, Point(dom[1],graphArea.y),Point(dom[1],graphArea.y+graphArea.height), clr, 2);
+                        }
+                        for(int u=graphArea.x; u<graphArea.x+graphArea.width; ++u){
+                            //for(int v=0; v<graphArea.height; ++v){
+                                for(int p=0; p<colored[c][u].size(); ++p){
+                                    circle(filteredPic,Point(u, colored[c][u][p]), 2,clr);
+                                }
+                            //}
+                        }
+                    }else{
+                    }
+                }
+            }
+
+            if(DEBUG){
+                cvtColor(filteredPic, filteredPic, CV_HSV2BGR);
+            }
+            return filteredPic;
+        });
+        return;
+    }
+
+    /*void getSubDomains(Mat mask, int nbrC, vector<vector<int>> centers, vector<Vec2i> &subDoms, vector<vector<vector<Point>>> &cCenters){
+        subDoms = vector<Vec2i>();
+        cCenters = vector<vector<vector<Point>>>(nbrC);
+        Vec2i _dom(0,0);
+        bool domUp = false;
+        for(int x=0; x<mask.cols; ++x){
+            bool flagUp = false;
+            int bCount = 0;
+            for(int y=0; y<mask.rows; ++y){
+                bool isOn = (mask.at<uchar>(y,x) > 0);
+                if(isOn && !flagUp){
+                    flagUp = true;
+                    ++bCount
+                }else if(!isOn && flagUp){
+                    flagUp = false;
+                }
+            }
+            if(bCount == nbrC){
+                if(domUp)
+                    _dom[1] = x:
+                else{
+                    _dom = Vec2i(x,x);
+                    domUp = true;
+                }
+            }else{
+                if(domUp){
+                    subDoms.push_back(_dom);
+                    domUp = false;
+                }
+            }
+            if(x+1 == mask.rows && domUp)
+                subDoms.push_back(_dom);
+        }
+        return;
+    }*/
+    void getSubDomains(Mat mask, int nbrC, vector<Vec2i> &subDoms){
+        subDoms = vector<Vec2i>();
+        Vec2i _dom(0,0);
+        bool domUp = false;
+        for(int x=0; x<mask.cols; ++x){
+            bool flagUp = false;
+            int bCount = 0;
+            for(int y=0; y<mask.rows; ++y){
+                bool isOn = (mask.at<uchar>(y,x) > 0);
+                if(isOn && !flagUp){
+                    flagUp = true;
+                    ++bCount;
+                }else if(!isOn && flagUp){
+                    flagUp = false;
+                }
+            }
+            if(bCount == nbrC){
+                if(domUp)
+                    _dom[1] = x;
+                else{
+                    _dom = Vec2i(x,x);
+                    domUp = true;
+                }
+            }else{
+                if(domUp){
+                    subDoms.push_back(_dom);
+                    domUp = false;
+                }
+            }
+            if(x+1 == mask.rows && domUp)
+                subDoms.push_back(_dom);
+        }
+        return;
+    }
+
     void getCurves(Mat hPic, vector<Mat> densities, vector<vector<vector<int>>> colored,
         Rect graphArea, vector<vehicule> &vhcs){
 

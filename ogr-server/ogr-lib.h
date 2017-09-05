@@ -308,6 +308,7 @@ namespace ogr{
         vector<vector<vector<int>>> &coloredPts, vector<Mat> &densities,vector<int> &);
     void getCurves(Mat,vector<Mat> densities, vector<vector<vector<int>>> colored,
         Rect graphArea, vector<vehicule> &vhcs);
+    void getCurves(vector<Mat> densities, vector<vector<vector<int>>> colored, vector<int> nbrC, Rect graphArea, vector<vehicule> &vhcs);
     void extractCurves(Mat densMat, vector<vector<Rect>> bZones, int nbrC, vector<vector<int>> &curves, double, int &b);
     void getTendency(Mat mask, Rect zone, Vec4f &tendency);
     void mask2points(Mat mask, Rect zone, vector<Point> &points);
@@ -315,6 +316,7 @@ namespace ogr{
     void getProjection(Rect _bZone, Vec4d params,int, Rect &_bZoneTranslated);
     void updateTendency(Vec4f &tendency, Vec4f _tendency, double inertie);
     void filterCurves(vector<vector<int>> curves, vehicule &filteredCurves);
+    void getSubDomains(Mat mask, int nbrC, vector<Vec2i> &subDoms);
 
 
     void extractStrokes(vector<Mat> densities, vector<vector<vector<int>>> colored,
