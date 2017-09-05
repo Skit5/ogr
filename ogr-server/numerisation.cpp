@@ -9,7 +9,7 @@ namespace ogr{
     void getCurvesStrokes(Mat hPic, vector<gaussianCurve> colors, Mat edgePic,
         vector<vector<vector<int>>> &coloredPts, vector<Mat> &densities, vector<int> &nbrC){
 
-        int xPos = 0, kernel = 7, w = 0;
+        int xPos = 0, kernel = 10, w = 2;
         coloredPts = vector<vector<vector<int>>>(colors.size());
         nbrC = vector<int>(colors.size());
         densities = vector<Mat>(colors.size());
@@ -36,10 +36,10 @@ namespace ogr{
                 }
                 int cCounter = 0, cCount = 0;
                 for(int center=0; center<centers.size(); ++center){
-                    if(centers[center].size()>0){
+                    //if(centers[center].size()>0){
                         ++cCounter;
                         cCount += centers[center].size();
-                    }
+                    //}
                 }
 
                 coloredPts[c] = centers;
@@ -111,41 +111,9 @@ namespace ogr{
                 if(subDoms.size() == 0)
                     continue;
                 else if(abs(subDoms[0][0]-subDoms[0][1]) <= *(params[1].paramAddress))
-                    subDoms.remove(subDoms.begin());
-                vector<vector<vector<int>>> vectors(subDoms.size());
-                /// On clusterise les points par courbe sur les segments sûrs
-                for(int u=0; u<subDoms.size(); ++u){
-                    /*if(abs(subDoms[u][0]-subDoms[u][1]) <= *(params[1].paramAddress))
-                        continue;*/
-                    vectors[u] = vector<vector<int>>(nbrC[c]);
-                    for(int x=subDoms[u][0]; u<=subDoms[u][1]; ++u){
-                        vector<int> _centers = colored[c][x];
-                        for(int v=0;v<nbrC[c].size() && (_centers.size()-v)>0;++v){
-                            vectors[u][v].push_back(_centers[v]);
-                        }
-                    }
-                }
-                /// Si on a 2 courbes, on doit avoir une inversion qu'on va chercher
-                if(nbrC[c] == 2){
-                    int invert = -1;
-                    for(int u=0; u<subDoms.size()-1 && invert == -1; ++u){
-                        vector<Vec4f> tendencies(2);
-                        for(int n=0; n<nbrC[c].size(); ++n){
-                            vector<int> vec = vectors[u][n];
-                            if(vec.size() == 0)
-                                continue;
-                            int _mem = min(vec.size(), *(params[0].paramAddress));
-                            vector<Point> _buff(vec.end()-_mem-1,vec.end()-1);
-                            Vec4f tendency;
-                            fitLine(_buff,tendency, CV_DIST_L2, 0, 0.01, 0.01);
-
-                    }
-
-                }
-
-
-
-                }
+                    subDoms.erase(subDoms.begin());
+                vector<vector<Point>> curves;
+                getContinuity(densities[c], colored[c], nbrC[c], subDoms, curves);
                 /*for(int n=0; n<nbrC[c].size(); ++n){
                     for(int u=0; u<subDoms.size()-1; ++u){
                         vector<int> vec = vectors[u][n];
@@ -198,6 +166,89 @@ namespace ogr{
             }
             return filteredPic;
         });
+        return;
+    }
+
+    void getContinuity(Mat mask, vector<vector<int>> pts, int nbrC, vector<Vec2i> doms, vector<vector<Point>> &curves){
+                curves = vector<vector<Point>>(nbrC);
+                /// On seede sur les traces du masque au premier domaine
+                int _pos = 0;
+                vector<Vec2i> dThick(nbrC);
+                for(int n=0; n<nbrC; ++n){
+                    bool isOn = false;
+                    for(int y=_pos; y<mask.rows; ++y){
+                        if(mask.at<uchar>(y,doms[0][0])){
+                            if(!isOn){
+                                isOn = true;
+                                _pos = y;
+                            }
+                        }else{
+                            if(isOn){
+                                isOn = false;
+                                dThick[n] = Vec2i(_pos, y-1);
+                                _pos = y;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                vector<Rect> _windows(nbrC);
+                for(int n=0; n<nbrC; ++n){
+                    int side = abs(dThick[n][1] - dThick[n][0]);
+                    _windows[n] = Rect(dThick[n][0],doms[0][0], side, side);
+                }
+
+/*
+
+                /// On ajoute continument les points sur tout le domaine
+                for(int x=)
+                /// On calcule la tendance à l'extrémité
+
+                /// On teste sur les points du domaine suivant et on sélectionne le plus proche de la tendance projetée
+
+                /// Fin d'itération, on reboucle pour résoudre les autres domaines
+
+
+                for(int x=doms[0][0]; x<=doms[0][1] && ; ++x){
+                    vector<int> _centers = colored[c][x];
+                    for(int v=0;v<nbrC[c].size() && (_centers.size()-v)>0;++v){
+                        vectors[u][v].push_back(_centers[v]);
+                    }
+                }
+
+                vector<vector<vector<int>>> vectors(subDoms.size());
+                /// On clusterise les points par courbe sur les segments sûrs
+                for(int u=0; u<subDoms.size(); ++u){
+                    vectors[u] = vector<vector<int>>(nbrC[c]);
+                    for(int x=subDoms[u][0]; x<=subDoms[u][1]; ++x){
+                        vector<int> _centers = colored[c][x];
+                        for(int v=0;v<nbrC[c].size() && (_centers.size()-v)>0;++v){
+                            vectors[u][v].push_back(_centers[v]);
+                        }
+                    }
+                }
+                /// Si on a 2 courbes, on doit avoir une inversion qu'on va chercher
+                if(nbrC[c] == 2){
+                    int invert = -1;
+                    for(int u=0; u<subDoms.size()-1 && invert == -1; ++u){
+                        vector<Vec4f> tendencies(2);
+                        for(int n=0; n<nbrC[c].size(); ++n){
+                            vector<int> vec = vectors[u][n];
+                            if(vec.size() == 0)
+                                continue;
+                            int _mem = min(vec.size(), *(params[0].paramAddress));
+                            vector<Point> _buff(vec.end()-_mem-1,vec.end()-1);
+                            Vec4f tendency;
+                            fitLine(_buff,tendency, CV_DIST_L2, 0, 0.01, 0.01);
+
+                    }
+
+                }
+
+
+
+                }*/
         return;
     }
 

@@ -317,6 +317,7 @@ namespace ogr{
     void updateTendency(Vec4f &tendency, Vec4f _tendency, double inertie);
     void filterCurves(vector<vector<int>> curves, vehicule &filteredCurves);
     void getSubDomains(Mat mask, int nbrC, vector<Vec2i> &subDoms);
+    void getContinuity(Mat mask, vector<vector<int>> pts, int nbrC, vector<Vec2i> doms, vector<vector<Point>> &curves);
 
 
     void extractStrokes(vector<Mat> densities, vector<vector<vector<int>>> colored,

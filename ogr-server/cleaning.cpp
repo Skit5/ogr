@@ -226,7 +226,7 @@ namespace ogr{
     void getColors(Mat hsvPic[], Rect graphArea,
         vector<gaussianCurve> &distribColors, Mat &maskColor, Mat mask){
             //int maxThresh = 20, maxGap = 3;
-            int maxThresh = 10, maxGap = 3;
+            int maxThresh = 22, maxGap = 3;
             vector<int> nbrCurves;
             maskColor = Mat::zeros(mask.size(),CV_32SC1);
             vector<param2optimize> params{
@@ -386,7 +386,7 @@ namespace ogr{
     void getColors(Mat hsvPic[], Rect graphArea,
         vector<gaussianCurve> &distribColors, Mat mask, vector<Mat> &masks){
             //int maxThresh = 20, maxGap = 3;
-            int maxThresh = 10, maxGap = 3;
+            int maxThresh = 14, maxGap = 3; /// MaxThresh dépend de la taille de l'image, on dirait
             vector<int> nbrCurves;
             vector<param2optimize> params{
                 {&maxThresh,"MaxRatioThreshold",100},
