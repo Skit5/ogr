@@ -118,7 +118,7 @@ namespace ogr{
 
     void getCurves(vector<Mat> densities, vector<vector<vector<int>>> colored, vector<int> nbrC, Rect graphArea, vector<vehicule> &vhcs){
 
-        int kernel = 18, w = 2, bT = 0;
+        int kernel = 5, w = 2, bT = 0;
         RNG rng(12345);
         vector<Scalar> clrs;
         for(int d=0; d<densities.size(); ++d)
@@ -145,8 +145,15 @@ namespace ogr{
                 getSubDomains(densities[c], nbrC[c], subDoms);
                 if(subDoms.size() == 0)
                     continue;
-                else if(abs(subDoms[0][0]-subDoms[0][1]) <= *(params[1].paramAddress))
-                    subDoms.erase(subDoms.begin());
+                //else if(abs(subDoms[0][0]-subDoms[0][1]) < *(params[1].paramAddress))
+                //    subDoms.erase(subDoms.begin());
+                Scalar clr = clrs[c];
+                        for(int v=0;v<subDoms.size();++v){
+                            Vec2i dom = subDoms[v];
+                            rectangle(filteredPic, Rect(Point(dom[1],graphArea.y),Point(dom[0],graphArea.y+graphArea.height)),clr, -1);
+                            //line(filteredPic, Point(dom[0],graphArea.y),Point(dom[0],graphArea.y+graphArea.height), clr, 2);
+                            //line(filteredPic, Point(dom[1],graphArea.y),Point(dom[1],graphArea.y+graphArea.height), clr, 2);
+                        }
                 vector<vector<Point>> curves;
                 getContinuity(densities[c], colored[c], nbrC[c], *(params[0].paramAddress), subDoms, curves);
                 /*for(int n=0; n<nbrC[c].size(); ++n){
@@ -257,12 +264,11 @@ namespace ogr{
                     Size2f sizes((float)side*2.0, (float)side*2.0);
                     _windows[n] = RotatedRect(q, sizes, 0.0);
                 }
-                cout<<"seeded"<<endl;
+                //cout<<"seeded"<<endl;
                 int _last = doms.back()[1];
                 /// On ajoute les points un par un tout en mettant à jour les fenêtres
                 for(int x=doms[0][0]; x<_last; ++x){
                     for(int n=0; n<nbrC; ++n){
-                    cout<<"this might bug1"<<endl;
                         /// Cherche les points dans la fenêtre d'observation
                         vector<Point> _buff;
                         for(int t=0; t<pts[x].size(); ++t){
@@ -274,50 +280,47 @@ namespace ogr{
                                 _buff.push_back(_val);
                             }
                         }
-                        cout<<"detected : "<<_buff.size()<<endl;
+                        //cout<<"detected : "<<_buff.size()<<endl;
 
-                    cout<<"this might bug2"<<endl;
                         /// Sélectionne le plus proche du centre s'il y en a
                         /// Sinon place un point au centre
                         if(_buff.size() > 0){
-                            Point _b;
+                            Point _b(0,0);
                             Point2f _curPt = _windows[n].center;
-                            float _curDist = sqrt(((_curPt.x - _b.x)*(_curPt.x - _b.x)) + ((_curPt.y - _b.y)*(_curPt.y - _b.y)));
                             for(int b=0; b<_buff.size(); ++b){
-                                float _thisDist = sqrt(((_curPt.x - _buff[b].x)*(_curPt.x - _buff[b].x)) + ((_curPt.y - _buff[b].y)*(_curPt.y - _buff[b].y)));
-                                if(_curDist < _thisDist){
+                                //float _curDist = sqrt(((_curPt.x - _b.x)*(_curPt.x - _b.x)) + ((_curPt.y - _b.y)*(_curPt.y - _b.y)));
+                                //float _thisDist = sqrt(((_curPt.x - _buff[b].x)*(_curPt.x - _buff[b].x)) + ((_curPt.y - _buff[b].y)*(_curPt.y - _buff[b].y)));
+                                float _curDist = abs(_curPt.y - _b.y);
+                                float _thisDist = abs(_curPt.y - _buff[b].y);
+                                if(_curDist > _thisDist){
                                     _b = _buff[b];
-                                    _curDist = _thisDist;
                                 }
                             }
                             curves[n].push_back(_b);
+                            _windows[n].center.y = (float)_b.y;
                         }else{
                             Point2f _curPt = _windows[n].center;
                             curves[n].push_back(Point((int)round(_curPt.x), (int)round(_curPt.y)));
                         }
 
-                    cout<<"this might bug3"<<endl;
                         /// Calcul la tendance sur les N derniers points s'ils existent
                         if(curves[n].size() > inertie){
-                    cout<<"this might bug31"<<endl;
                             vector<Point> _interpPoints(curves[n].end()-(inertie+1), curves[n].end()-1);
-                    cout<<"this might bug32"<<endl;
-                    cout<<"btw "<<_interpPoints.size()<<" and "<<curves[n].size()<<endl;
+                    //cout<<"btw "<<_interpPoints.size()<<" and "<<curves[n].size()<<endl;
                             Vec4f newTendency;
                             fitLine(_interpPoints, newTendency, CV_DIST_L2, 0, 0.01, 0.01);
-                    cout<<"this might bug33"<<endl;
                             _windows[n].angle = atan(newTendency[1]/newTendency[0]);
                         }
 
-                    cout<<"this might bug4"<<endl;
-                    cout<<" a "<<_windows[n].angle<<endl;
+                    //cout<<" a "<<_windows[n].angle<<endl;
                         /// Mets à jour la fenêtre
-                        float dy = tan(_windows[n].angle/180)*(1.0+x-_windows[n].center.x);
-                        _windows[n].center = Point2f((float)x+1, _windows[n].center.y + dy);
-                    cout<<"curve "<<n<<" done in pos "<<x<<endl;
+                        float dy = _windows[n].center.y +tan(_windows[n].angle/180)*(1.0+x-_windows[n].center.x);
+                        cout<<" dy "<<dy<<" c: "<< _windows[n].center<<" theta: "<<tan(_windows[n].angle/180)*(1.0+x-_windows[n].center.x)<<endl;
+                        _windows[n].center = Point2f((float)x+1,  dy);
+                    //cout<<"curve "<<n<<" done in pos "<<x<<endl;
                     }
                 }
-                cout<<"segmented"<<endl;
+                //cout<<"segmented"<<endl;
 
 /*
 
