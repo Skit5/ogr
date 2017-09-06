@@ -78,8 +78,8 @@ namespace ogr{
 
                 coloredPts[c] = centers;
                 densities[c] = edFiltPic;
-                int rat = round((double)cCount/cCounter);
-                nbrC[c] = max(2,rat);
+                double rat = cCount/cCounter;
+                nbrC[c] = min(2,(int)round(rat));
                 if(DEBUG){
                     cout<<"Detected curves for color "<<c<<" = "<<nbrC[c]<<endl;
                     int clr2disp = *(params[2].paramAddress)-1;
@@ -148,7 +148,7 @@ namespace ogr{
                 else if(abs(subDoms[0][0]-subDoms[0][1]) <= *(params[1].paramAddress))
                     subDoms.erase(subDoms.begin());
                 vector<vector<Point>> curves;
-                getContinuity(densities[c], colored[c], nbrC[c], subDoms, curves);
+                getContinuity(densities[c], colored[c], nbrC[c], *(params[0].paramAddress), subDoms, curves);
                 /*for(int n=0; n<nbrC[c].size(); ++n){
                     for(int u=0; u<subDoms.size()-1; ++u){
                         vector<int> vec = vectors[u][n];
@@ -170,7 +170,7 @@ namespace ogr{
                     vectors[n] = vector<int>(graphArea.width);
                     vectors[n][0] = colored[c][b][n];
                 }*/
-
+                cout<<"uh "<<curves[0].size()<<endl;
 
                 if(DEBUG){
                     //cout<<"Nbr of Curves for color["<<c<<"]: "<<nbrC[c]<<endl;
@@ -192,7 +192,26 @@ namespace ogr{
                             //}
                         }
                     }else{
+                        int c1 = curve2disp%2,
+                            c2 = floor(curve2disp/2);
+                        if(c == c2 && curves.size()>c1){
+                            //cout<<" cSize: "<<curves[c1].size()<<endl;
+                            //if(curves[c1].size()>0){
+                                for(int k=0; k<curves[c1].size(); ++k){
+                                    circle(filteredPic,curves[c1][k],2,clr);
+                                    cout<<" - "<<curves[c1][k]<<endl;
+                                    /*int idB = curves[c1][k];
+                                    if(idB >= 0){
+                                        rectangle(filteredPic, bZones[b+k][idB], clr, 1);
+                                        for(int p=0; p<batchs[b+k][idB].size(); ++p){
+                                            circle(filteredPic,batchs[b+k][idB][p],2,clr);
+                                        }
+                                    }*/
+                                }
+                           //}
+                        }
                     }
+
                 }
             }
 
@@ -204,8 +223,9 @@ namespace ogr{
         return;
     }
 
-    void getContinuity(Mat mask, vector<vector<int>> pts, int nbrC, vector<Vec2i> doms, vector<vector<Point>> &curves){
+    void getContinuity(Mat mask, vector<vector<int>> pts, int nbrC, int inertie, vector<Vec2i> doms, vector<vector<Point>> &curves){
                 curves = vector<vector<Point>>(nbrC);
+                inertie = max(2, inertie);
                 /// On seede sur les traces du masque au premier domaine
                 int _pos = 0;
                 vector<Vec2i> dThick(nbrC);
@@ -227,12 +247,77 @@ namespace ogr{
                         }
                     }
                 }
-
-                vector<Rect> _windows(nbrC);
+                /// On crée et on place les fenêtres d'observation
+                vector<RotatedRect> _windows(nbrC);
                 for(int n=0; n<nbrC; ++n){
+                    if(dThick[n][0] == 0 && dThick[n][1] == 0)
+                        continue;
                     int side = abs(dThick[n][1] - dThick[n][0]);
-                    _windows[n] = Rect(dThick[n][0],doms[0][0], side, side);
+                    Point2f q((float)doms[0][0], (float)dThick[n][0]+(side/2));
+                    Size2f sizes((float)side*2.0, (float)side*2.0);
+                    _windows[n] = RotatedRect(q, sizes, 0.0);
                 }
+                cout<<"seeded"<<endl;
+                int _last = doms.back()[1];
+                /// On ajoute les points un par un tout en mettant à jour les fenêtres
+                for(int x=doms[0][0]; x<_last; ++x){
+                    for(int n=0; n<nbrC; ++n){
+                    cout<<"this might bug1"<<endl;
+                        /// Cherche les points dans la fenêtre d'observation
+                        vector<Point> _buff;
+                        for(int t=0; t<pts[x].size(); ++t){
+                            Point _val(x,pts[x][t]);
+                            cout<<_val<<" / "<<_windows[n].center<<endl;
+                            Rect _rect(_windows[n].boundingRect());
+                            if(_rect.contains(_val)){
+                                cout<<"AT LEAST OOOOOOOOOOOOOOOOOOOOOOOOOOOOONE"<<endl;
+                                _buff.push_back(_val);
+                            }
+                        }
+                        cout<<"detected : "<<_buff.size()<<endl;
+
+                    cout<<"this might bug2"<<endl;
+                        /// Sélectionne le plus proche du centre s'il y en a
+                        /// Sinon place un point au centre
+                        if(_buff.size() > 0){
+                            Point _b;
+                            Point2f _curPt = _windows[n].center;
+                            float _curDist = sqrt(((_curPt.x - _b.x)*(_curPt.x - _b.x)) + ((_curPt.y - _b.y)*(_curPt.y - _b.y)));
+                            for(int b=0; b<_buff.size(); ++b){
+                                float _thisDist = sqrt(((_curPt.x - _buff[b].x)*(_curPt.x - _buff[b].x)) + ((_curPt.y - _buff[b].y)*(_curPt.y - _buff[b].y)));
+                                if(_curDist < _thisDist){
+                                    _b = _buff[b];
+                                    _curDist = _thisDist;
+                                }
+                            }
+                            curves[n].push_back(_b);
+                        }else{
+                            Point2f _curPt = _windows[n].center;
+                            curves[n].push_back(Point((int)round(_curPt.x), (int)round(_curPt.y)));
+                        }
+
+                    cout<<"this might bug3"<<endl;
+                        /// Calcul la tendance sur les N derniers points s'ils existent
+                        if(curves[n].size() > inertie){
+                    cout<<"this might bug31"<<endl;
+                            vector<Point> _interpPoints(curves[n].end()-(inertie+1), curves[n].end()-1);
+                    cout<<"this might bug32"<<endl;
+                    cout<<"btw "<<_interpPoints.size()<<" and "<<curves[n].size()<<endl;
+                            Vec4f newTendency;
+                            fitLine(_interpPoints, newTendency, CV_DIST_L2, 0, 0.01, 0.01);
+                    cout<<"this might bug33"<<endl;
+                            _windows[n].angle = atan(newTendency[1]/newTendency[0]);
+                        }
+
+                    cout<<"this might bug4"<<endl;
+                    cout<<" a "<<_windows[n].angle<<endl;
+                        /// Mets à jour la fenêtre
+                        float dy = tan(_windows[n].angle/180)*(1.0+x-_windows[n].center.x);
+                        _windows[n].center = Point2f((float)x+1, _windows[n].center.y + dy);
+                    cout<<"curve "<<n<<" done in pos "<<x<<endl;
+                    }
+                }
+                cout<<"segmented"<<endl;
 
 /*
 
@@ -426,10 +511,7 @@ namespace ogr{
                     }
                 }
 
-                cout<<"prout4"<<endl;
             }
-
-                cout<<"prout5"<<endl;
 
             if(DEBUG){
                 cvtColor(filteredPic, filteredPic, CV_HSV2BGR);
@@ -580,7 +662,7 @@ namespace ogr{
                     //fitCustomPoly(ptsBuff, coefs, densMat.rows-1);
                     //cout<<"coef: "<<coefs<<endl;
                     Vec4f _tendency;
-                    cout<<"KATA"<<endl;
+                    cout<<"KATARA"<<endl;
                     getTendency(Mat(densMat, _next), _next, _tendency);
                     cout<<"SOKA"<<endl;
                     updateTendency(tendency, _tendency, inertie);
