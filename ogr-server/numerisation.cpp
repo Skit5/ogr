@@ -9,10 +9,11 @@ namespace ogr{
     void getCurvesStrokes(Mat hPic, vector<gaussianCurve> colors, Mat edgePic,
         vector<vector<vector<int>>> &coloredPts, vector<Mat> &densities, vector<int> &nbrC){
 
-        int xPos = 0, kernel = 10, w = 2;
+        int xPos = 0, kernel = 10, w = 0;
         coloredPts = vector<vector<vector<int>>>(colors.size());
         nbrC = vector<int>(colors.size());
         densities = vector<Mat>(colors.size());
+        //crosses = vector<Vec2i>(colors.size());
 
         vector<param2optimize> params{
             {&kernel,"Kernel Size Morph",20},
@@ -34,17 +35,51 @@ namespace ogr{
                     morphologyEx(edFiltPic,edFiltPic, MORPH_OPEN, element);
                     //morphologyEx(edFiltPic,edFiltPic, MORPH_ERODE, element);
                 }
+                /*if(centers.size()<2)
+                    continue;
+                centers[centers.begin()]
                 int cCounter = 0, cCount = 0;
+                for(int x=0; x<edFiltPic.cols; ++x){
+                    bool isOn = false;
+                    for(int y=_pos; y<mask.rows; ++y){
+                        if(mask.at<uchar>(y,doms[0][0])){
+                            if(!isOn){
+                                isOn = true;
+                                _pos = y;
+                            }
+                        }else{
+                            if(isOn){
+                                isOn = false;
+                                dThick[n] = Vec2i(_pos, y-1);
+                                _pos = y;
+                                break;
+                            }
+                        }
+                    }
+                }*/
+                int cCount = 0, cCounter = 0;
                 for(int center=0; center<centers.size(); ++center){
                     //if(centers[center].size()>0){
+                    int previous = -1;
+                    for(int y=0; y<centers[center].size(); ++y){
+                        int val = centers[center][y];
+                        if(previous >= 0){
+                            if(abs(previous-val)<*(params[0].paramAddress))
+                                continue;
+                        }
+                        previous = val;
+                        ++cCount;
+                    }
+                    if(previous >= 0)
                         ++cCounter;
-                        cCount += centers[center].size();
+                        //cCount += centers[center].size();
                     //}
                 }
 
                 coloredPts[c] = centers;
                 densities[c] = edFiltPic;
-                nbrC[c] = (cCount/cCounter < 1.5)? 1: 2;
+                int rat = round((double)cCount/cCounter);
+                nbrC[c] = max(2,rat);
                 if(DEBUG){
                     cout<<"Detected curves for color "<<c<<" = "<<nbrC[c]<<endl;
                     int clr2disp = *(params[2].paramAddress)-1;
@@ -138,16 +173,16 @@ namespace ogr{
 
 
                 if(DEBUG){
-                    cout<<"Nbr of Curves for color["<<c<<"]: "<<nbrC[c]<<endl;
+                    //cout<<"Nbr of Curves for color["<<c<<"]: "<<nbrC[c]<<endl;
                     Scalar clr = clrs[c], gClr = clr;
                     gClr[2] = 100;
                     int curve2disp = *(params[2].paramAddress)-1;
                     if(curve2disp < 0){
                         for(int v=0;v<subDoms.size();++v){
                             Vec2i dom = subDoms[v];
-                            rectangle(filteredPic, Rect(Point(dom[0],graphArea.y),Point(dom[1],graphArea.y+graphArea.height)),gClr, -1);
-                            //line(filteredPic, Point(dom[0],graphArea.y),Point(dom[0],graphArea.y+graphArea.height), clr, 2);
-                            //line(filteredPic, Point(dom[1],graphArea.y),Point(dom[1],graphArea.y+graphArea.height), clr, 2);
+                            //rectangle(filteredPic, Rect(Point(dom[0],graphArea.y),Point(dom[1],graphArea.y+graphArea.height)),gClr, -1);
+                            line(filteredPic, Point(dom[0],graphArea.y),Point(dom[0],graphArea.y+graphArea.height), clr, 2);
+                            line(filteredPic, Point(dom[1],graphArea.y),Point(dom[1],graphArea.y+graphArea.height), clr, 2);
                         }
                         for(int u=graphArea.x; u<graphArea.x+graphArea.width; ++u){
                             //for(int v=0; v<graphArea.height; ++v){
