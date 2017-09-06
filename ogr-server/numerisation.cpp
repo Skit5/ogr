@@ -78,7 +78,8 @@ namespace ogr{
 
                 coloredPts[c] = centers;
                 densities[c] = edFiltPic;
-                double rat = cCount/cCounter;
+                double rat = (double)cCount/cCounter;
+                cout<<rat<<endl;
                 nbrC[c] = min(2,(int)round(rat));
                 if(DEBUG){
                     cout<<"Detected curves for color "<<c<<" = "<<nbrC[c]<<endl;
@@ -145,15 +146,15 @@ namespace ogr{
                 getSubDomains(densities[c], nbrC[c], subDoms);
                 if(subDoms.size() == 0)
                     continue;
-                //else if(abs(subDoms[0][0]-subDoms[0][1]) < *(params[1].paramAddress))
-                //    subDoms.erase(subDoms.begin());
-                Scalar clr = clrs[c];
+                else if(abs(subDoms[0][0]-subDoms[0][1]) < *(params[1].paramAddress))
+                    subDoms.erase(subDoms.begin());
+                /*Scalar clr = clrs[c];
                         for(int v=0;v<subDoms.size();++v){
                             Vec2i dom = subDoms[v];
                             rectangle(filteredPic, Rect(Point(dom[1],graphArea.y),Point(dom[0],graphArea.y+graphArea.height)),clr, -1);
                             //line(filteredPic, Point(dom[0],graphArea.y),Point(dom[0],graphArea.y+graphArea.height), clr, 2);
                             //line(filteredPic, Point(dom[1],graphArea.y),Point(dom[1],graphArea.y+graphArea.height), clr, 2);
-                        }
+                        }*/
                 vector<vector<Point>> curves;
                 getContinuity(densities[c], colored[c], nbrC[c], *(params[0].paramAddress), subDoms, curves);
                 /*for(int n=0; n<nbrC[c].size(); ++n){
@@ -421,15 +422,16 @@ namespace ogr{
                 bool isOn = (mask.at<uchar>(y,x) > 0);
                 if(isOn && !flagUp){
                     flagUp = true;
+                    //_dom[0] = x;
                     ++bCount;
                 }else if(!isOn && flagUp){
                     flagUp = false;
                 }
             }
             if(bCount == nbrC){
-                if(domUp)
+                if(domUp){
                     _dom[1] = x;
-                else{
+                }else{
                     _dom = Vec2i(x,x);
                     domUp = true;
                 }
@@ -439,7 +441,7 @@ namespace ogr{
                     domUp = false;
                 }
             }
-            if(x+1 == mask.rows && domUp)
+            if(x+1 == mask.cols && domUp)
                 subDoms.push_back(_dom);
         }
         return;
