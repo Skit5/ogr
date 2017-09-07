@@ -7,7 +7,6 @@ window.onload = function(){
 		function(data){
 			addCurve(item, data);
 		});
-		console.log(item);
 	});
 	/*var entries = '';
 	$.post("/api/controller.php",
@@ -41,7 +40,6 @@ function addCurve(vhc, entries){
 		C.push(item['C']);
 		P.push(item['C']*item['w']/702.35);
 	});
-	console.log(dataPoints);
 	/*var ctx = new Chart(document.getElementById("myChart").getContext("2d"), {
 		type: "line",
 		data: dataPoints

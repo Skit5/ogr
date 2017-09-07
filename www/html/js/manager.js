@@ -25,7 +25,7 @@ function setListEntries(list2set){
 			<td>"+item['constructor']+"</td>\
 			<td>"+dateToMonthYear(item['constructionDate'])+"</td>\
 			<td>"+item['insertDate']+"</td>\
-	      	<td><input type='checkbox' name='checks[]' value='"+item['nom']+"'></td>\
+	      	<td><input type='checkbox' name='checks[]' value='"+item['id']+"'></td>\
 		</tr>";
 	});
 	return entries;
@@ -43,7 +43,6 @@ $("#viewTool").click(function(){
 	var cEntries = getCheckedEntries();
 	console.log(cEntries);
 	if(cEntries.length > 0){
-		cEntries.push("yololo 2");
 		window.open('applet.html?v='+encodeURIComponent(cEntries), '_blank');
 	}
 });
@@ -93,5 +92,25 @@ function dateToMonthYear(date2conv){
 			break;
 	} 
 	return sMonth+" "+sliced[0];
-
 }
+
+$('#searchbar input').on('input',function(){
+	var customQuery = this.value;
+	var entries = '';
+	$.post("/api/controller.php",
+		{'q':'list',
+		'toSearch':customQuery},
+		function(data){
+		console.log(data);
+		if(data.length > 0){
+			entries = setListEntries(data);
+		}else{
+			entries = "<tr>\
+				<td colspan=4>\
+				Pas de résultat correspondant à votre recherche.\
+				</td>\
+			</tr>";
+		}
+		$('#list-displayer tbody').html(entries);
+	});
+});
