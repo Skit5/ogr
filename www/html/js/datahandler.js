@@ -1,13 +1,16 @@
-window.onload = function(){
+function getLines(){
 	var vehicules = getParams();
-	var dataPoints = [];
+	var dataPoints = []; 
+	console.log(vehicules);
 	$(vehicules).each(function(i, item){
 		$.post("/api/controller.php",
 		{'q':'read', 'vhc': item},
 		function(data){
-			addCurve(item, data);
+			dataPoints.push(getCurve(item, data));
 		});
 	});
+	return dataPoints; 
+}
 	/*var entries = '';
 	$.post("/api/controller.php",
 		{'q':'read'},
@@ -23,10 +26,10 @@ window.onload = function(){
 		}
 		$('#list-displayer tbody').html(entries);
 	});*/
-};
+//};
 
-function addCurve(vhc, entries){
-	var dataPoints = [],
+function getCurve(vhc, entries){
+	out = [];
 		w = [],
 		P = [],
 		C = [];
@@ -37,16 +40,20 @@ function addCurve(vhc, entries){
 			C : 715.95*item['P']/item['w']
 		});*/
 		w.push(item['w']);
-		C.push(item['C']);
-		P.push(item['C']*item['w']/702.35);
+		C.push([item['w'],item['C']]);
+		P.push([item['w'],item['C']*item['w']/702.35]);
 	});
+	out.push(P);
+	out.push(C);
+	return out;
+}
 	/*var ctx = new Chart(document.getElementById("myChart").getContext("2d"), {
 		type: "line",
 		data: dataPoints
 	});*/
 
-	var canvas = document.getElementById('myChart');
-	new Chart(canvas, {
+	//var canvas = document.getElementById('myChart');
+	/*new Chart(canvas, {
 	  type: 'line',
 	  data: {
 	    labels: w,
@@ -73,7 +80,7 @@ function addCurve(vhc, entries){
 	      }]
 	    }
 	  }
-	});
+	});*/
 
 	/*new Morris.Line({
 	  // ID of the element in which to draw the chart.
@@ -89,7 +96,7 @@ function addCurve(vhc, entries){
 	  // chart.
 	  labels: ['P','C']
 	});*/
-}
+//}
 
 function getParams(){
 	var vList = decodeURIComponent(window.location.search.substring(3));

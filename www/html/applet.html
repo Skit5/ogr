@@ -10,7 +10,7 @@
     <link href="css/bootstrap.min.css" rel="stylesheet"/>
     <link href="css/bootstrap-theme.min.css" rel="stylesheet"/>
     <link href="css/bootstrap-theme.css" rel="stylesheet"/>
-    <link rel="stylesheet" href="css/morris.css">
+    <link rel="stylesheet" href="css/applet.css">
     <link href="css/main.css" rel="stylesheet"/>
   </head>
   <body>
@@ -20,11 +20,9 @@
         </div>
     </div>
     <!-- Content -->
-    <div class="container-fluid">
+    <div id="graphcontainer" class="container-fluid">
+      <div id="placeholder" class="graph-placeholder"></div>
 		</div>
-    <div class="container">
-      <canvas id="myChart" width="200" height="200"></canvas>
-    </div>
     <!-- Footer -->
     <div id="footer" class="container-fluid">
     </div>
@@ -33,7 +31,12 @@
     <script type="text/javascript" src="js/jquery.min.js"/></script>
     <script type="text/javascript" src="js/bootstrap.min.js"></script>
     <script type="text/javascript" src="js/datahandler.js"/></script>
-    <script type="text/javascript" src="js/Chart.min.js"></script>
+    <!--<script type="text/javascript" src="js/Chart.min.js"></script>-->
+    <script language="javascript" type="text/javascript" src="js/flot/jquery.js"></script>
+    <script language="javascript" type="text/javascript" src="js/flot/jquery.flot.js"></script>
+    <script language="javascript" type="text/javascript" src="js/flot/jquery.flot.crosshair.js"></script>
+    <script language="javascript" type="text/javascript" src="js/flot/jquery.flot.resize.min.js"></script>
+    <script type="text/javascript" src="js/graphMaker.js"></script>
     
   </body>
 </html>
