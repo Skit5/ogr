@@ -22,6 +22,8 @@ function setListEntries(list2set){
 		entries += "<tr>\
 			<td>"+item['nom']+"</td>\
 			<td>"+item['details']+"</td>\
+			<td>"+item['constructor']+"</td>\
+			<td>"+dateToMonthYear(item['constructionDate'])+"</td>\
 			<td>"+item['insertDate']+"</td>\
 	      	<td><input type='checkbox' name='checks[]' value='"+item['nom']+"'></td>\
 		</tr>";
@@ -45,3 +47,51 @@ $("#viewTool").click(function(){
 		window.open('applet.html?v='+encodeURIComponent(cEntries), '_blank');
 	}
 });
+
+function dateToMonthYear(date2conv){
+	var sliced = date2conv.split('-');
+	var sMonth = '';
+	switch(sliced[1]){
+		case "01":
+			sMonth = "Jan";
+			break;
+		case "02":
+			sMonth = "Fév";
+			break;
+		case "03":
+			sMonth = "Mars";
+			break;
+		case "04":
+			sMonth = "Avr";
+			break;
+		case "05":
+			sMonth = "Mai";
+			break;
+		case "06":
+			sMonth = "Juin";
+			break;
+		case "07":
+			sMonth = "Juil";
+			break;
+		case "08":
+			sMonth = "Août";
+			break;
+		case "09":
+			sMonth = "Sept";
+			break;
+		case "10":
+			sMonth = "Oct";
+			break;
+		case "11":
+			sMonth = "Nov";
+			break;
+		case "12":
+			sMonth = "Déc";
+			break;
+		default:
+			sMonth = "";
+			break;
+	} 
+	return sMonth+" "+sliced[0];
+
+}

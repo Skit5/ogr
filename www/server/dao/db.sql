@@ -26,17 +26,8 @@ CREATE TABLE `constructors` (
   `idConstructor` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`idConstructor`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `constructors`
---
-
-LOCK TABLES `constructors` WRITE;
-/*!40000 ALTER TABLE `constructors` DISABLE KEYS */;
-/*!40000 ALTER TABLE `constructors` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `releves`
@@ -56,15 +47,6 @@ CREATE TABLE `releves` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `releves`
---
-
-LOCK TABLES `releves` WRITE;
-/*!40000 ALTER TABLE `releves` DISABLE KEYS */;
-/*!40000 ALTER TABLE `releves` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
 -- Table structure for table `vehicules`
 --
 
@@ -76,22 +58,13 @@ CREATE TABLE `vehicules` (
   `nom` varchar(255) NOT NULL,
   `details` mediumtext,
   `constructor` int(11) NOT NULL,
-  `constructionDate` datetime DEFAULT NULL,
+  `constructionDate` date DEFAULT NULL,
   `insertDate` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`idVehicule`),
   KEY `fk_Vehicules_Constructors1_idx` (`constructor`),
   CONSTRAINT `fk_Vehicules_Constructors1` FOREIGN KEY (`constructor`) REFERENCES `constructors` (`idConstructor`) ON DELETE CASCADE ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `vehicules`
---
-
-LOCK TABLES `vehicules` WRITE;
-/*!40000 ALTER TABLE `vehicules` DISABLE KEYS */;
-/*!40000 ALTER TABLE `vehicules` ENABLE KEYS */;
-UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -102,4 +75,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2017-09-05 17:56:30
+-- Dump completed on 2017-09-07  3:01:49

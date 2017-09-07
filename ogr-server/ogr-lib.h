@@ -75,6 +75,21 @@ namespace ogr{
         string name;
         int paramMax;
     };
+    struct movingWindow{
+        Point center;
+        int side, dy;
+        Rect getRect(){
+            int halfS = round(this->side/2);
+            Point _start(this->center.x-halfS,this->center.y-halfS),
+                _end(_start.x+this->side, _start.y+this->side);
+            return Rect(_start, _end);
+        }
+        void iterate(){
+            ++this->center.x;
+            this->center.y += this->dy;
+            return;
+        }
+    };
 
     /*struct stroke{
         int width;
