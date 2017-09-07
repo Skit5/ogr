@@ -79,7 +79,7 @@ namespace ogr{
                 coloredPts[c] = centers;
                 densities[c] = edFiltPic;
                 double rat = (double)cCount/cCounter;
-                cout<<rat<<endl;
+                //cout<<rat<<endl;
                 nbrC[c] = min(2,(int)round(rat));
                 if(DEBUG){
                     cout<<"Detected curves for color "<<c<<" = "<<nbrC[c]<<endl;
@@ -117,7 +117,7 @@ namespace ogr{
     /// GET CURVES
     ///
 
-    void getCurves(vector<Mat> densities, vector<vector<vector<int>>> colored, vector<int> nbrC, Rect graphArea, vector<vehicule> &vhcs){
+    void getCurves(vector<Mat> densities, vector<gaussianCurve> distClrs, vector<vector<vector<int>>> colored, vector<int> nbrC, Rect graphArea, vector<vehicule> &vhcs){
 
         int kernel = 14, w = 8, bT = 0;
         RNG rng(12345);
@@ -132,7 +132,7 @@ namespace ogr{
         };
 
         optimizer(params, [=, &vhcs]()->Mat{
-            vhcs= vector<vehicule>(densities.size());
+            vhcs= vector<vehicule>();
             Mat filteredPic = Mat::zeros(densities[0].size(), CV_8UC3);
             int kernel = *(params[0].paramAddress), kSize = 2*kernel+1,
                 widthMargin = max(min(*(params[1].paramAddress), kSize),1); /// Si 0, trop de calculs
@@ -157,6 +157,40 @@ namespace ogr{
                         }*/
                 vector<vector<Point>> curves;
                 getContinuity(densities[c], colored[c], nbrC[c], *(params[0].paramAddress), subDoms, curves);
+                /// Puis on filtre et on renvoit
+                    /// On élimine les couleurs improbables
+                    Vec2i _intDom(subDoms[0][0], subDoms.back()[1]);
+                    if((_intDom[1] - _intDom[0])<(graphArea.width/2)){
+                        continue;
+                    }
+                    /// On élimine les paires invalides
+
+                    /// On crée le véhicule
+                    vector<int> P, C;
+                    int isCDone = 0; // no c
+                    if(nbrC[c]==2){
+                        if(curves[0][0].y<curves[1][0].y) // p first
+                            isCDone = 1;
+                        else // c first
+                            isCDone = 2;
+                    }
+                    for(int t=0; t<nbrC[c]; ++t){
+                        vector<int> _buffC;
+                        for(int d=0; d<curves[t].size(); ++d){
+                            _buffC.push_back(curves[t][d].y);
+                        }
+                        if(isCDone == 2){
+                            C = _buffC;
+                            --isCDone;
+                        }else{
+                            P = _buffC;
+                            isCDone = 2;
+                        }
+                    }
+                    if(P.size() == 0 && C.size() == 0)
+                        continue;
+                    vehicule _vhc = {_intDom, P, C, distClrs[c].mean};
+                    vhcs.push_back(_vhc);
                 /*for(int n=0; n<nbrC[c].size(); ++n){
                     for(int u=0; u<subDoms.size()-1; ++u){
                         vector<int> vec = vectors[u][n];
@@ -178,7 +212,7 @@ namespace ogr{
                     vectors[n] = vector<int>(graphArea.width);
                     vectors[n][0] = colored[c][b][n];
                 }*/
-                cout<<"uh "<<curves[0].size()<<endl;
+                //cout<<"uh "<<curves[0].size()<<endl;
 
                 if(DEBUG){
                     //cout<<"Nbr of Curves for color["<<c<<"]: "<<nbrC[c]<<endl;
@@ -207,7 +241,7 @@ namespace ogr{
                             //if(curves[c1].size()>0){
                                 for(int k=0; k<curves[c1].size(); ++k){
                                     circle(filteredPic,curves[c1][k],2,clr);
-                                    cout<<" - "<<curves[c1][k]<<endl;
+                                    //cout<<" - "<<curves[c1][k]<<endl;
                                     /*int idB = curves[c1][k];
                                     if(idB >= 0){
                                         rectangle(filteredPic, bZones[b+k][idB], clr, 1);
@@ -277,10 +311,10 @@ namespace ogr{
                         vector<Point> _buff;
                         for(int t=0; t<pts[x].size(); ++t){
                             Point _val(x,pts[x][t]);
-                            cout<<_val<<" / "<<_windows[n].center<<endl;
+                            //cout<<_val<<" / "<<_windows[n].center<<endl;
                             //Rect _rect(_windows[n].boundingRect());
                             if(_windows[n].getRect().contains(_val)){
-                                cout<<"AT LEAST OOOOOOOOOOOOOOOOOOOOOOOOOOOOONE"<<endl;
+                                //cout<<"AT LEAST OOOOOOOOOOOOOOOOOOOOOOOOOOOOONE"<<endl;
                                 _buff.push_back(_val);
                             }
                         }

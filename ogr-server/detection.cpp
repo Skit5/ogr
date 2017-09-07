@@ -565,7 +565,7 @@ namespace ogr{
     void getIntersect(vector<Vec4i> horizontales, vector<Vec4i> verticales, vector<Point>&intersects){
         if(horizontales.size() == 0 || verticales.size() == 0)
             return;
-        vector<Point> _inters;
+        vector<Point> _inters, extremities;
         for(int i=0; i<verticales.size(); ++i){
             Vec4i v = verticales[i];
             for(int j=0; j<horizontales.size(); ++j){
@@ -574,14 +574,17 @@ namespace ogr{
                     && h[0]<= v[2]+round(v[3]/2))
                     _inters.push_back(Point(v[0],h[0]));
                 /// On ajoute les extrémités
-                _inters.push_back(Point(v[0],v[1]));
-                _inters.push_back(Point(v[0],v[2]));
-                _inters.push_back(Point(h[1],h[0]));
-                _inters.push_back(Point(h[2],h[0]));
+                extremities.push_back(Point(v[0],v[1]));
+                extremities.push_back(Point(v[0],v[2]));
+                extremities.push_back(Point(h[1],h[0]));
+                extremities.push_back(Point(h[2],h[0]));
                 // Donne de meilleurs résultats lorsque les axes ne sont pas totalement définis
                 // Donne de mauvais résultats quand les caractères sont pris dans le contour externe
                 // Solution: chercher la continuité dans les horizontales et les verticales sur le masque des courbes
             }
+        }
+        if(boundingRect(_inters).area() < boundingRect(extremities).area()/3){
+            _inters.insert(_inters.end(), extremities.begin(), extremities.end());
         }
         if(DEBUG)
             cout<<"== Détection des intersections =="<<endl
@@ -628,10 +631,10 @@ namespace ogr{
                 Mat _maskInts = Mat::zeros(vPic.size(),CV_8UC1);
                 drawContours(_maskInts, conts, maxCurve, Scalar(255), *(params[1].paramAddress), 1, hiers, 0, Point());
 
-                if(*(params[0].paramAddress) > 0){
+                /*if(*(params[0].paramAddress) > 0){
                     Mat element = getStructuringElement(MORPH_CROSS,Size(*(params[0].paramAddress),*(params[0].paramAddress)));
                     morphologyEx(_maskInts, _maskInts, MORPH_ERODE, element, Point());
-                }
+                }*/
                 for(int i=0; i<ints.size(); ++i){
                     Point _p = ints[i];
                     if(_maskInts.at<uchar>(_p.y,_p.x)>0)

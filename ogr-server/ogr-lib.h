@@ -18,7 +18,7 @@ namespace ogr{
     /** VARIABLES DE NAMESPACE
     *       DEBUG flag d'affichage des données de traitement
     */
-    const bool DEBUG = true;
+    const bool DEBUG = false;
     //extern Size picDims;
     //Size picSize = Size();
 
@@ -35,10 +35,44 @@ namespace ogr{
     struct vehicule{
         Vec2i domain;
         vector<int> P,C;
+        int hue;
+        String getJsonLike(){
+            String outty = "";
+            outty += "{ start:"+ to_string(domain[0]);
+            outty += ",end:"+to_string(domain[1]);
+            outty += ",hue:"+to_string(hue);
+            outty += ",P:{";
+            for(int v=0; v<this->P.size(); ++v){
+                outty += to_string(P[v]);
+                if(v+1<this->P.size())
+                    outty += ",";
+            }
+            outty += "},C:{";
+            for(int v=0; v<this->C.size(); ++v){
+                outty += to_string(C[v]);
+                if(v+1<this->C.size())
+                    outty += ",";
+            }
+            outty +="}}";
+            return outty;
+        }
     };
     struct extractedGraph{
-        int xmin, xmax, ymin, ymax;
-        vector<vector<splineCubic> > splinesP, splinesC;
+        int status, xmin, xmax, ymin, ymax;
+        vector<vehicule> vhcs;
+        String getJsonLike(){
+            String outty = "{status:"+to_string(status);
+            outty +=",xmin:"+to_string(xmin);
+            outty += ",xmax:"+to_string(xmax);
+            outty += ",ymin:"+to_string(ymin);
+            outty += ",ymax:"+to_string(ymax);
+            outty += ",vehicules:{";
+            for(int v=0; v<this->vhcs.size(); ++v){
+                outty += this->vhcs[v].getJsonLike();
+            }
+            outty +="}}";
+            return outty;
+        }
     };
     struct gaussianCurve{
         int sigma, mean;
@@ -323,7 +357,7 @@ namespace ogr{
         vector<vector<vector<int>>> &coloredPts, vector<Mat> &densities,vector<int> &);
     void getCurves(Mat,vector<Mat> densities, vector<vector<vector<int>>> colored,
         Rect graphArea, vector<vehicule> &vhcs);
-    void getCurves(vector<Mat> densities, vector<vector<vector<int>>> colored, vector<int> nbrC, Rect graphArea, vector<vehicule> &vhcs);
+    void getCurves(vector<Mat> densities, vector<gaussianCurve>, vector<vector<vector<int>>> colored, vector<int> nbrC, Rect graphArea, vector<vehicule> &vhcs);
     void extractCurves(Mat densMat, vector<vector<Rect>> bZones, int nbrC, vector<vector<int>> &curves, double, int &b);
     void getTendency(Mat mask, Rect zone, Vec4f &tendency);
     void mask2points(Mat mask, Rect zone, vector<Point> &points);

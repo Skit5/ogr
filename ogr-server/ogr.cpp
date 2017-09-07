@@ -124,7 +124,12 @@ namespace ogr{
 
         vector<vehicule> vhcs;
         //getCurves(hsvSplitted[0], densities, colored, graphArea, vhcs);
-        getCurves(densities, colored, nbrC, graphArea, vhcs);
+        getCurves(densities, distribColors, colored, nbrC, graphArea, vhcs);
+
+
+
+        extractedGraph outty = {0,graphArea.x, graphArea.x+graphArea.width, graphArea.y, graphArea.y+graphArea.height, vhcs};
+        cout<<outty.getJsonLike()<<endl;
 
 
         //vector<vector<vector<int>>> curves;

@@ -8,7 +8,7 @@ int main ( int argc, char **argv )
     if(argv[1]){
         initialPicture = argv[1];
     }else{
-        initialPicture = "dataset/graph2.jpg";
+        initialPicture = "dataset/graph0.jpg";
     }
 
     extractedGraph segmentedCurves = extract(initialPicture);
